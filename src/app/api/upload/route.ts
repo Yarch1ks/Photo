@@ -1,0 +1,109 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, mkdir, readdir, rm } from 'fs/promises'
+import { join } from 'path'
+import { generateFileName } from '@/lib/utils/validation'
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData()
+    const sku = formData.get('sku') as string
+    const files = formData.getAll('files') as File[]
+    
+    if (!sku) {
+      return NextResponse.json(
+        { error: 'SKU is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!files || files.length === 0) {
+      return NextResponse.json(
+        { error: 'No files provided' },
+        { status: 400 }
+      )
+    }
+
+    // Валидация SKU
+    if (!/^[a-zA-Z0-9_-]+$/.test(sku)) {
+      return NextResponse.json(
+        { error: 'Invalid SKU format. Only letters, numbers, -, _ are allowed' },
+        { status: 400 }
+      )
+    }
+
+    // Создаем временную директорию для этого SKU
+    const uploadDir = join(process.cwd(), 'temp', sku)
+    
+    // Очищаем старые файлы для этого SKU, если они существуют
+    try {
+      const existingFiles = await readdir(uploadDir)
+      if (existingFiles.length > 0) {
+        console.log(`Cleaning up ${existingFiles.length} old files for SKU: ${sku}`)
+        await rm(uploadDir, { recursive: true, force: true })
+        await mkdir(uploadDir, { recursive: true })
+      }
+    } catch (error) {
+      // Если директория не существует, просто создаем ее
+      await mkdir(uploadDir, { recursive: true })
+    }
+
+    const processedFiles = []
+
+    for (const file of files) {
+      // Валидация размера (25MB max)
+      if (file.size > 25 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: `File ${file.name} exceeds 25MB limit` },
+          { status: 400 }
+        )
+      }
+
+      // Валидация типа файла
+      const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/heic',
+        'video/mp4', 'video/quicktime'
+      ]
+      
+      if (!allowedTypes.includes(file.type)) {
+        return NextResponse.json(
+          { error: `File ${file.name} has unsupported type: ${file.type}` },
+          { status: 400 }
+        )
+      }
+
+      // Генерируем имя файла по формату sku_{NNN}.{ext}
+      const fileExtension = file.name.split('.').pop()
+      const fileIndex: number = processedFiles.length + 1
+      const fileName = generateFileName(sku, fileIndex, fileExtension!)
+      const filePath = join(uploadDir, fileName)
+
+      // Сохраняем файл
+      const bytes = await file.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      await writeFile(filePath, buffer)
+
+      processedFiles.push({
+        id: `file_${fileIndex}`,
+        originalName: file.name,
+        fileName: fileName,
+        filePath: filePath,
+        type: file.type.startsWith('image/') ? 'image' : 'video',
+        size: file.size,
+        sku: sku
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      files: processedFiles,
+      sku: sku
+    })
+
+  } catch (error) {
+    console.error('Upload error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
