@@ -12,7 +12,12 @@ const nextConfig = {
       use: 'file-loader'
     })
     return config
-  }
+  },
+  // Добавляем поддержку для GitHub Pages
+  distDir: 'out',
+  generateBuildId: false,
+  generateEtags: false,
+  generateMapId: false,
 }
 
 module.exports = nextConfig

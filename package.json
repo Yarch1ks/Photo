@@ -8,7 +8,8 @@
     "export": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "export:prod": "NODE_ENV=production next build"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
