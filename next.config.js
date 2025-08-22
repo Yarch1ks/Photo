@@ -13,11 +13,10 @@ const nextConfig = {
     })
     return config
   },
-  // Добавляем поддержку для GitHub Pages
-  distDir: 'out',
+  // Базовая конфигурация для экспорта
+  distDir: '.next',
   generateBuildId: false,
   generateEtags: false,
-  generateMapId: false,
 }
 
 module.exports = nextConfig
