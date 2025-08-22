@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "export:prod": "NODE_ENV=production next build"
+    "export:prod": "NODE_ENV=production next build",
+    "postinstall": "npm install"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
