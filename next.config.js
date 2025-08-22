@@ -1,12 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['sharp']
-  },
+  output: 'export',
+  trailingSlash: true,
   images: {
-    domains: ['localhost'],
-    unoptimized: false
+    unoptimized: true
   },
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/Photo' : '',
   webpack: (config) => {
     config.module.rules.push({
       test: /\.heic$/i,
