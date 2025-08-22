@@ -12,11 +12,7 @@ const nextConfig = {
       use: 'file-loader'
     })
     return config
-  },
-  // Базовая конфигурация для экспорта
-  distDir: '.next',
-  generateBuildId: false,
-  generateEtags: false,
+  }
 }
 
 module.exports = nextConfig
