@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir, readdir, rm, access } from 'fs/promises'
+import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { generateFileName } from '@/lib/utils/validation'
+
+// Простая функция генерации имени файла
+function generateFileName(sku: string, index: number, extension: string): string {
+  return `${sku}_${String(index).padStart(3, '0')}.${extension}`
+}
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('=== UPLOAD API START ===')
+    
     const formData = await request.formData()
     const sku = formData.get('sku') as string
     const files = formData.getAll('files') as File[]
     
+    console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? value.name : value]))
+    
     if (!sku) {
+      console.error('SKU is required')
       return NextResponse.json(
         { error: 'SKU is required' },
         { status: 400 }
@@ -17,74 +26,37 @@ export async function POST(request: NextRequest) {
     }
 
     if (!files || files.length === 0) {
+      console.error('No files provided')
       return NextResponse.json(
         { error: 'No files provided' },
         { status: 400 }
       )
     }
 
-    // Валидация SKU
-    if (!/^[a-zA-Z0-9_-]+$/.test(sku)) {
-      return NextResponse.json(
-        { error: 'Invalid SKU format. Only letters, numbers, -, _ are allowed' },
-        { status: 400 }
-      )
-    }
-
-    // Используем простую временную директорию без вложенности SKU
-    // В Railway используем /tmp, в локальной среде - process.cwd()
-    const workingDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp' : process.cwd()
-    const uploadDir = join(workingDir, 'temp')
+    console.log(`Processing ${files.length} files for SKU: ${sku}`)
     
-    console.log(`Working directory: ${workingDir}`)
+    // Простая директория для Railway
+    const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    
     console.log(`Upload directory: ${uploadDir}`)
-    console.log(`Environment: Railway = ${!!process.env.RAILWAY_SERVICE_NAME}`)
-    console.log(`SKU: ${sku}`)
     
     try {
-      // Просто создаем директорию без проверок
       await mkdir(uploadDir, { recursive: true })
       console.log(`Directory created: ${uploadDir}`)
     } catch (error) {
       console.error('Error creating directory:', error)
-      // Продолжаем работу даже если директория не создалась
     }
 
     const processedFiles = []
 
-    for (const file of files) {
-      console.log(`Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`)
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      console.log(`Processing file ${i + 1}/${files.length}: ${file.name}`)
       
-      // Валидация размера (25MB max)
-      if (file.size > 25 * 1024 * 1024) {
-        console.error(`File ${file.name} exceeds 25MB limit`)
-        return NextResponse.json(
-          { error: `File ${file.name} exceeds 25MB limit` },
-          { status: 400 }
-        )
-      }
-
-      // Валидация типа файла
-      const allowedTypes = [
-        'image/jpeg', 'image/jpg', 'image/png', 'image/heic',
-        'video/mp4', 'video/quicktime'
-      ]
-      
-      if (!allowedTypes.includes(file.type)) {
-        console.error(`File ${file.name} has unsupported type: ${file.type}`)
-        return NextResponse.json(
-          { error: `File ${file.name} has unsupported type: ${file.type}` },
-          { status: 400 }
-        )
-      }
-
-      // Генерируем имя файла по формату sku_{NNN}.{ext}
-      const fileExtension = file.name.split('.').pop()
-      const fileIndex: number = processedFiles.length + 1
-      const fileName = generateFileName(sku, fileIndex, fileExtension!)
+      // Простое имя файла без сложной логики
+      const fileName = `${sku}_${String(i + 1).padStart(3, '0')}.jpg`
       const filePath = join(uploadDir, fileName)
 
-      console.log(`Generated filename: ${fileName}`)
       console.log(`File path: ${filePath}`)
       console.log(`File size: ${file.size}`)
       console.log(`File type: ${file.type}`)
@@ -94,23 +66,26 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer()
         const buffer = Buffer.from(bytes)
         await writeFile(filePath, buffer)
-        console.log(`File saved successfully: ${filePath}`)
+        console.log(`✅ File saved successfully: ${filePath}`)
       } catch (error) {
-        console.error(`Error saving file ${filePath}:`, error)
+        console.error(`❌ Error saving file ${filePath}:`, error)
         throw error
       }
 
       processedFiles.push({
-        id: `file_${fileIndex}`,
+        id: `file_${i + 1}`,
         originalName: file.name,
         fileName: fileName,
         filePath: filePath,
-        type: file.type.startsWith('image/') ? 'image' : 'video',
+        type: 'image',
         size: file.size,
         sku: sku
       })
     }
 
+    console.log('=== UPLOAD API SUCCESS ===')
+    console.log('Processed files:', processedFiles)
+    
     return NextResponse.json({
       success: true,
       files: processedFiles,
@@ -118,7 +93,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Upload error:', error)
+    console.error('❌ UPLOAD API ERROR:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
