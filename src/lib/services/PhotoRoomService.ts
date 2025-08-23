@@ -16,6 +16,7 @@ export class PhotoRoomService {
 
   constructor() {
     this.token = PHOTOROOM_TOKEN
+    console.log('🔑 PhotoRoom token:', this.token ? 'SET' : 'NOT SET')
     if (!this.token) {
       throw new Error('PHOTOROOM_TOKEN is required')
     }

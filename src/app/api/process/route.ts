@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
 
     console.log('🔧 Initializing PhotoRoomService...')
     const photoRoomService = new PhotoRoomService()
+    console.log('🔧 PhotoRoomService initialized successfully')
     const results: ProcessResponse['results'] = []
 
     // Фильтруем только изображения для обработки
@@ -73,23 +74,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Обрабатываем изображения с ограничением concurrent запросов
+    console.log(`🎯 Starting processing of ${imageFiles.length} image files...`)
+    
     for (let i = 0; i < imageFiles.length; i += MAX_CONCURRENT_REQUESTS) {
       const batch = imageFiles.slice(i, i + MAX_CONCURRENT_REQUESTS)
+      console.log(`📦 Processing batch ${Math.floor(i/MAX_CONCURRENT_REQUESTS) + 1} with ${batch.length} files...`)
       
       // Ждем, если слишком много активных запросов
       while (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+        console.log('⏳ Waiting for active requests to complete...')
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
       activeRequests++
+      console.log(`🚀 Active requests: ${activeRequests}`)
 
       const batchPromises = batch.map(async (file) => {
         try {
+          console.log(`🔍 Processing file: ${file.fileName}`)
+          
           // Генерируем уникальное имя файла для этого конкретного файла
           const currentFileCounter = fileCounter++
           
           // PhotoRoom всегда возвращает JPG формат
           const finalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.jpg`
+          console.log(`📝 Generated final name: ${finalName}`)
           
           // Читаем файл из правильной директории
           const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
@@ -123,7 +132,7 @@ export async function POST(request: NextRequest) {
           }
           
         } catch (error) {
-          console.error(`Error processing file ${file.fileName}:`, error)
+          console.error(`❌ Error processing file ${file.fileName}:`, error)
           
           // Генерируем уникальное имя файла для ошибки
           const currentFileCounter = fileCounter++
