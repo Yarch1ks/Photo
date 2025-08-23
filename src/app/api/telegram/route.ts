@@ -77,12 +77,22 @@ export async function POST(request: NextRequest) {
       // Добавляем все файлы из SKU директории в архив
       for (const file of skuFiles) {
         const filePath = join(skuDir, file)
-        const fileStats = await readFile(filePath)
-        archive.append(fileStats, { name: file })
+        console.log(`Adding file to archive: ${filePath}`)
+        
+        try {
+          const fileStats = await readFile(filePath)
+          archive.append(fileStats, { name: file })
+          console.log(`✅ Added file to archive: ${file} (${fileStats.length} bytes)`)
+        } catch (error) {
+          console.error(`❌ Error adding file ${file} to archive:`, error)
+          throw new Error(`Failed to add file ${file} to archive: ${error}`)
+        }
       }
 
       // Завершаем архив
+      console.log('Finalizing ZIP archive...')
       await archive.finalize()
+      console.log('✅ ZIP archive finalized successfully')
     } catch (error) {
       console.error('Error creating ZIP archive:', error)
       return NextResponse.json(
