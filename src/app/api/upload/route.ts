@@ -32,21 +32,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Создаем временную директорию для этого SKU
-    // В Railway используем RAILWAY_SERVICE_NAME или /tmp
+    // В Railway используем /tmp, в локальной среде - process.cwd()
     const workingDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp' : process.cwd()
     const uploadDir = join(workingDir, 'temp', sku)
     
-    // Очищаем старые файлы для этого SKU, если они существуют
+    console.log(`Working directory: ${workingDir}`)
+    console.log(`Upload directory: ${uploadDir}`)
+    
     try {
-      const existingFiles = await readdir(uploadDir)
-      if (existingFiles.length > 0) {
-        console.log(`Cleaning up ${existingFiles.length} old files for SKU: ${sku}`)
-        await rm(uploadDir, { recursive: true, force: true })
-        await mkdir(uploadDir, { recursive: true })
+      // Проверяем, существует ли директория
+      const fs = require('fs').promises
+      try {
+        await fs.access(uploadDir)
+        console.log(`Directory exists: ${uploadDir}`)
+      } catch (error) {
+        console.log(`Creating directory: ${uploadDir}`)
+        await fs.mkdir(uploadDir, { recursive: true })
       }
     } catch (error) {
-      // Если директория не существует, просто создаем ее
-      await mkdir(uploadDir, { recursive: true })
+      console.error('Error creating directory:', error)
+      throw error
     }
 
     const processedFiles = []
