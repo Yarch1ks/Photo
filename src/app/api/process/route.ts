@@ -46,9 +46,19 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🔧 Initializing PhotoRoomService...')
-    const photoRoomService = new PhotoRoomService()
-    console.log('🔧 PhotoRoomService initialized successfully')
-    const results: ProcessResponse['results'] = []
+    let photoRoomService: PhotoRoomService
+    let results: ProcessResponse['results'] = []
+    
+    try {
+      photoRoomService = new PhotoRoomService()
+      console.log('🔧 PhotoRoomService initialized successfully')
+    } catch (error) {
+      console.error('❌ Failed to initialize PhotoRoomService:', error)
+      return NextResponse.json(
+        { error: 'PhotoRoom service initialization failed' },
+        { status: 500 }
+      )
+    }
 
     // Фильтруем только изображения для обработки
     const imageFiles = files.filter(file => file.type === 'image')
