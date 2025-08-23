@@ -5,10 +5,6 @@ const nextConfig = {
     unoptimized: true
   },
   assetPrefix: process.env.ASSET_PREFIX || '',
-  // Отключаем статическую генерацию для всех API routes
-  experimental: {
-    serverComponentsExternalPackages: ['fs', 'path']
-  },
   webpack: (config) => {
     config.module.rules.push({
       test: /\.heic$/i,

@@ -9,7 +9,6 @@ function generateFileName(sku: string, index: number, extension: string): string
 
 // Явно отключаем статическую генерацию для этого API route
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {

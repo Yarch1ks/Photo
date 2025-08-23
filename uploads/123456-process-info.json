@@ -1,0 +1,23 @@
+[
+  {
+    "id": "file_1",
+    "originalName": "123456_001.jpg",
+    "finalName": "123456_001.jpg",
+    "status": "done",
+    "processedPath": "uploads/123456_001.jpg"
+  },
+  {
+    "id": "file_2",
+    "originalName": "123456_002.jpg",
+    "finalName": "123456_002.jpg",
+    "status": "done",
+    "processedPath": "uploads/123456_002.jpg"
+  },
+  {
+    "id": "file_3",
+    "originalName": "123456_003.jpg",
+    "finalName": "123456_003.jpg",
+    "status": "done",
+    "processedPath": "uploads/123456_003.jpg"
+  }
+]
