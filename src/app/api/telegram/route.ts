@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, readdir } from 'fs/promises'
+import { readFile, readdir, unlink } from 'fs/promises'
 import { join } from 'path'
-import { createReadStream, createWriteStream } from 'fs'
+import { createReadStream, createWriteStream, readFileSync } from 'fs'
 import archiver from 'archiver'
 
 interface TelegramRequest {
@@ -57,42 +57,61 @@ export async function POST(request: NextRequest) {
     const zipFilePath = join(uploadDir, zipFileName)
 
     try {
-      // Создаем ZIP архив с помощью archiver
-      const output = createWriteStream(zipFilePath)
-      const archive = archiver('zip', {
-        zlib: { level: 9 } // Максимальное сжатие
-      })
+      // Создаем ZIP архив с помощью archiver и оборачиваем в Promise
+      await new Promise((resolve, reject) => {
+        const output = createWriteStream(zipFilePath)
+        const archive = archiver('zip', {
+          zlib: { level: 9 } // Максимальное сжатие
+        })
 
-      output.on('close', () => {
-        console.log(`ZIP archive created: ${zipFilePath}`)
-      })
+        output.on('close', () => {
+          console.log(`ZIP archive created: ${zipFilePath}`)
+          resolve(true)
+        })
 
-      archive.on('error', (err) => {
-        throw err
-      })
+        output.on('error', (err) => {
+          console.error('Error writing ZIP file:', err)
+          reject(err)
+        })
 
-      // Записываем данные в файл
-      archive.pipe(output)
+        archive.on('error', (err) => {
+          console.error('Archiver error:', err)
+          reject(err)
+        })
 
-      // Добавляем все файлы из SKU директории в архив
-      for (const file of skuFiles) {
-        const filePath = join(skuDir, file)
-        console.log(`Adding file to archive: ${filePath}`)
-        
-        try {
-          const fileStats = await readFile(filePath)
-          archive.append(fileStats, { name: file })
-          console.log(`✅ Added file to archive: ${file} (${fileStats.length} bytes)`)
-        } catch (error) {
-          console.error(`❌ Error adding file ${file} to archive:`, error)
-          throw new Error(`Failed to add file ${file} to archive: ${error}`)
+        archive.on('warning', (err) => {
+          if (err.code === 'ENOENT') {
+            console.warn('Archiver warning:', err)
+          } else {
+            reject(err)
+          }
+        })
+
+        // Записываем данные в файл
+        archive.pipe(output)
+
+        // Добавляем все файлы из SKU директории в архив
+        for (const file of skuFiles) {
+          const filePath = join(skuDir, file)
+          console.log(`Adding file to archive: ${filePath}`)
+          
+          try {
+            const fileStats = readFileSync(filePath)
+            archive.append(fileStats, { name: file })
+            console.log(`✅ Added file to archive: ${file} (${fileStats.length} bytes)`)
+          } catch (error) {
+            console.error(`❌ Error adding file ${file} to archive:`, error)
+            reject(new Error(`Failed to add file ${file} to archive: ${error}`))
+            return
+          }
         }
-      }
 
-      // Завершаем архив
-      console.log('Finalizing ZIP archive...')
-      await archive.finalize()
-      console.log('✅ ZIP archive finalized successfully')
+        // Завершаем архив
+        console.log('Finalizing ZIP archive...')
+        archive.finalize()
+      })
+
+      console.log('✅ ZIP archive created successfully')
     } catch (error) {
       console.error('Error creating ZIP archive:', error)
       return NextResponse.json(
@@ -143,6 +162,22 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json()
     console.log('File sent to Telegram successfully:', result)
+
+    // Читаем process-info.json для получения списка файлов для удаления
+    const processInfoPath = join(skuDir, `${sku}-process-info.json`)
+    const processInfo = JSON.parse(await readFile(processInfoPath, 'utf-8'))
+
+    // Удаляем оригинальные файлы после успешной отправки
+    if (processInfo.filesToDelete) {
+      for (const filePath of processInfo.filesToDelete) {
+        try {
+          await unlink(filePath)
+          console.log(`Deleted original file: ${filePath}`)
+        } catch (error) {
+          console.error(`Error deleting file ${filePath}:`, error)
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

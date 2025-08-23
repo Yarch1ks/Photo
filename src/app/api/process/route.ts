@@ -174,21 +174,17 @@ export async function POST(request: NextRequest) {
       activeRequests--
     }
 
-    // Сохраняем информацию о процессинге в отдельный файл для использования при скачивании
+    // Сохраняем информацию о процессинге и файлах для удаления
     const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
     const uploadDir = join(baseUploadDir, sku)
     const processInfoPath = join(uploadDir, `${sku}-process-info.json`)
-    await writeFile(processInfoPath, JSON.stringify(results, null, 2))
     
-    // Удаляем оригинальные файлы после успешной обработки
-    for (const filePath of originalFilesToDelete) {
-      try {
-        await unlink(filePath)
-        console.log(`Deleted original file: ${filePath}`)
-      } catch (error) {
-        console.error(`Error deleting file ${filePath}:`, error)
-      }
+    const processInfo = {
+      results,
+      filesToDelete: originalFilesToDelete
     }
+    
+    await writeFile(processInfoPath, JSON.stringify(processInfo, null, 2))
 
     return NextResponse.json({
       success: true,
