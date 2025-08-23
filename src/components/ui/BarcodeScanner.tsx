@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Camera, X, ScanLine, Search } from 'lucide-react'
-import { isBarcodeDetectorSupported } from '@/lib/utils/validation'
+import { BrowserMultiFormatReader } from '@zxing/library'
 
 interface BarcodeScannerProps {
   onDetected: (barcode: string) => void
@@ -16,10 +16,23 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [scanStarted, setScanStarted] = useState(false)
   const [cameraStarted, setCameraStarted] = useState(false)
+  const [zxingReader, setZxingReader] = useState<BrowserMultiFormatReader | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const animationRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    // Инициализируем ZXing reader
+    const reader = new BrowserMultiFormatReader()
+    setZxingReader(reader)
+    
+    return () => {
+      if (reader) {
+        reader.reset()
+      }
+      stopScanning()
+    }
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
@@ -73,20 +86,16 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
       setScanStarted(true)
       setIsScanning(true)
 
-      // Проверяем поддержку BarcodeDetector
-      const barcodeDetectorSupported = isBarcodeDetectorSupported()
-      console.log('🔍 BarcodeDetector поддерживается:', barcodeDetectorSupported)
-
-      // Начинаем сканирование
-      if (barcodeDetectorSupported) {
-        console.log('🔍 Используем BarcodeDetector')
-        // Запускаем непрерывное сканирование
-        continuousBarcodeDetection()
-      } else {
-        console.log('⚠️ BarcodeDetector не поддерживается, используем fallback')
-        // Запускаем непрерывное fallback сканирование
-        continuousFallbackDetection()
+      if (!zxingReader) {
+        console.error('❌ ZXing reader не инициализирован')
+        onError('ZXing reader не инициализирован')
+        return
       }
+
+      console.log('🔍 Запускаем сканирование с ZXing...')
+      
+      // Запускаем непрерывное сканирование
+      continuousZxingDetection()
     } catch (error) {
       console.error('❌ Ошибка запуска сканирования:', error)
       setIsScanning(false)
@@ -95,57 +104,31 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
     }
   }
 
-  const continuousBarcodeDetection = async () => {
-    if (!videoRef.current || !canvasRef.current) return
+  const continuousZxingDetection = async () => {
+    if (!videoRef.current || !zxingReader) return
 
     try {
-      // Проверяем, поддерживается ли BarcodeDetector
-      if (!(window as any).BarcodeDetector) {
-        console.log('⚠️ BarcodeDetector не поддерживается, используем fallback')
-        continuousFallbackDetection()
-        return
-      }
-
-      let barcodeDetector: any
-      try {
-        barcodeDetector = new (window as any).BarcodeDetector({
-          formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
-        })
-
-        console.log('✅ BarcodeDetector инициализирован успешно')
-        // Убираем проверку getSupportedFormats, так как она не поддерживается во всех браузерах
-        console.log('📋 Используем форматы: code_128, ean_13, ean_8, code_39, code_93, codabar, upc_a, upc_e')
-      } catch (error) {
-        console.error('❌ Ошибка инициализации BarcodeDetector:', error)
-        // Переходим к fallback методу
-        continuousFallbackDetection()
-        return
-      }
-
+      console.log('🔍 ZXing сканирование начато')
+      
       const detect = async () => {
         if (!isScanning) return
 
         try {
-          const barcodes = await barcodeDetector.detect(videoRef.current!)
-          
-          if (barcodes.length > 0) {
-            const barcode = barcodes[0].rawValue
-            console.log('✅ Обнаружен штрих-код:', barcode, 'Формат:', barcodes[0].format)
-            console.log('🎉 Штрих-код успешно обнаружен!')
-            onDetected(barcode)
-            stopScanning()
-            return
-          } else {
-            console.log('❌ Штрих-коды не обнаружены')
-            console.log('📹 Проверка видео потока...')
-            if (videoRef.current) {
-              console.log('📏 Видео размеры:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
-              console.log('🎬 Видео играет:', !videoRef.current.paused && !videoRef.current.ended)
-              console.log('🎯 Попробуйте поднести штрих-код ближе к камере')
+          // Используем ZXing для детекции
+          zxingReader.decodeFromVideoDevice(null, videoRef.current, (result, error) => {
+            if (result) {
+              console.log('✅ ZXing обнаружил штрих-код:', result.getText())
+              console.log('🎉 Штрих-код успешно обнаружен!')
+              onDetected(result.getText())
+              stopScanning()
             }
-          }
+            
+            if (error) {
+              console.log('❌ ZXing не обнаружил штрих-код:', error.message)
+            }
+          })
         } catch (error) {
-          console.error('❌ Ошибка детекции штрих-кода:', error)
+          console.error('❌ Ошибка ZXing детекции:', error)
         }
 
         // Непрерывное сканирование - запускаем снова
@@ -154,7 +137,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
 
       detect()
     } catch (error) {
-      console.error('❌ Ошибка BarcodeDetector:', error)
+      console.error('❌ Ошибка ZXing:', error)
       // Переходим к fallback методу
       continuousFallbackDetection()
     }
@@ -199,6 +182,10 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
       animationRef.current = null
     }
 
+    if (zxingReader) {
+      zxingReader.reset()
+    }
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
@@ -207,104 +194,6 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
-  }
-
-  const scanWithBarcodeDetector = async () => {
-    if (!videoRef.current || !canvasRef.current) return
-
-    try {
-      // Проверяем, поддерживается ли BarcodeDetector
-      if (!(window as any).BarcodeDetector) {
-        console.log('⚠️ BarcodeDetector не поддерживается, используем fallback')
-        scanWithFallback()
-        return
-      }
-
-      let barcodeDetector: any
-      try {
-        barcodeDetector = new (window as any).BarcodeDetector({
-          formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
-        })
-
-        console.log('✅ BarcodeDetector инициализирован успешно')
-        try {
-          const formats = await barcodeDetector.getSupportedFormats()
-          console.log('📋 Доступные форматы:', formats)
-        } catch (error) {
-          console.log('⚠️ Не удалось получить форматы:', error)
-        }
-      } catch (error) {
-        console.error('❌ Ошибка инициализации BarcodeDetector:', error)
-        // Переходим к fallback методу
-        scanWithFallback()
-        return
-      }
-
-      const detect = async () => {
-        if (!isScanning) return
-
-        try {
-          const barcodes = await barcodeDetector.detect(videoRef.current!)
-          
-          if (barcodes.length > 0) {
-            const barcode = barcodes[0].rawValue
-            console.log('✅ Обнаружен штрих-код:', barcode, 'Формат:', barcodes[0].format)
-            console.log('🎉 Штрих-код успешно обнаружен!')
-            onDetected(barcode)
-            stopScanning()
-            return
-          } else {
-            console.log('❌ Штрих-коды не обнаружены')
-            console.log('📹 Проверка видео потока...')
-            if (videoRef.current) {
-              console.log('📏 Видео размеры:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
-              console.log('🎬 Видео играет:', !videoRef.current.paused && !videoRef.current.ended)
-              console.log('🎯 Попробуйте поднести штрих-код ближе к камере')
-            }
-          }
-        } catch (error) {
-          console.error('❌ Ошибка детекции штрих-кода:', error)
-        }
-
-        animationRef.current = requestAnimationFrame(detect)
-      }
-
-      detect()
-    } catch (error) {
-      console.error('❌ Ошибка BarcodeDetector:', error)
-      // Переходим к fallback методу
-      scanWithFallback()
-    }
-  }
-
-  const scanWithFallback = () => {
-    // Простая fallback реализация - можно заменить на Quagga2 или ZXing
-    console.log('⚠️ Используется fallback метод сканирования')
-    
-    // Для демонстрации - имитация сканирования
-    const simulateScan = () => {
-      if (!isScanning) return
-      
-      // Имитация случайного обнаружения штрих-кода
-      if (Math.random() < 0.02) { // 2% шанс на кадр
-        // Генерируем CODE 39 формат (буквы + цифры, длиной до 25 символов)
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-$./+'
-        const length = Math.floor(Math.random() * 10) + 10 // 10-19 символов
-        let mockBarcode = ''
-        for (let i = 0; i < length; i++) {
-          mockBarcode += chars.charAt(Math.floor(Math.random() * chars.length))
-        }
-        console.log('🎯 Fallback: Обнаружен CODE 39 штрих-код:', mockBarcode)
-        console.log('🎉 Fallback: Штрих-код успешно обнаружен!')
-        onDetected(mockBarcode)
-        stopScanning()
-        return
-      }
-
-      animationRef.current = requestAnimationFrame(simulateScan)
-    }
-
-    simulateScan()
   }
 
   const handleManualClose = () => {
@@ -365,7 +254,6 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-red-500 rounded-full"></div>
               </div>
 
-              <canvas ref={canvasRef} className="hidden" />
 
               <div className="mt-4 text-center">
                 {!cameraStarted ? (
