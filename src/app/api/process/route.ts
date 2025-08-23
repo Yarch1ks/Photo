@@ -155,6 +155,7 @@ export async function POST(request: NextRequest) {
           const errorFinalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.${originalExtension}`
           
           // В случае ошибки не удаляем оригинал
+          const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
           return {
             id: file.id,
             originalName: file.originalName,
