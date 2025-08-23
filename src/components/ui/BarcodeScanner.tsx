@@ -137,8 +137,14 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
       
       // Имитация случайного обнаружения штрих-кода
       if (Math.random() < 0.005) { // 0.5% шанс на кадр
-        const mockBarcode = '1234567890123' // EAN-13 формат
-        console.log('Fallback: Обнаружен штрих-код:', mockBarcode)
+        // Генерируем CODE 39 формат (буквы + цифры, длиной до 25 символов)
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-$./+'
+        const length = Math.floor(Math.random() * 10) + 10 // 10-19 символов
+        let mockBarcode = ''
+        for (let i = 0; i < length; i++) {
+          mockBarcode += chars.charAt(Math.floor(Math.random() * chars.length))
+        }
+        console.log('Fallback: Обнаружен CODE 39 штрих-код:', mockBarcode)
         onDetected(mockBarcode)
         stopScanning()
         return
@@ -214,7 +220,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
                   Наведите штрих-код в рамку для сканирования
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Поддерживаются форматы: EAN-13, Code 128, UPC-A и др.
+                  Поддерживаются форматы: CODE 39, EAN-13, Code 128, UPC-A и др.
                 </p>
               </div>
             </div>
