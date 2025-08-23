@@ -30,20 +30,41 @@ export async function POST(request: NextRequest) {
     const skuDir = join(uploadDir, sku)
     
     // Читаем process-info.json для получения списка обработанных файлов
-    const processInfoPath = join(skuDir, `${sku}-process-info.json`)
+    const processInfoPath = join(uploadDir, `${sku}-process-info.json`)
+    console.log(`Looking for process info at: ${processInfoPath}`)
+    
     let processInfo
     try {
-      const processInfoContent = await readFile(processInfoPath, 'utf-8')
-      processInfo = JSON.parse(processInfoContent)
+      // Проверяем, существует ли файл
+      const stats = await readFile(processInfoPath, 'utf-8')
+      console.log(`Process info file exists, content length: ${stats.length}`)
+      
+      processInfo = JSON.parse(stats)
+      console.log('Process info parsed:', JSON.stringify(processInfo, null, 2))
       
       if (!processInfo.processedFiles || processInfo.processedFiles.length === 0) {
+        console.log('No processed files found in process info')
         return NextResponse.json(
           { error: 'No processed files found for this SKU' },
           { status: 404 }
         )
       }
+      
+      console.log(`Found ${processInfo.processedFiles.length} processed files`)
     } catch (error) {
       console.error(`Error reading process info for SKU ${sku}:`, error)
+      console.error(`Process info path: ${processInfoPath}`)
+      console.error(`Upload dir: ${uploadDir}`)
+      console.error(`SKU dir: ${skuDir}`)
+      
+      // Попробуем прочитать директорию, чтобы увидеть, какие файлы там есть
+      try {
+        const files = await readdir(skuDir)
+        console.log(`Files in SKU directory: ${files}`)
+      } catch (dirError) {
+        console.error(`Error reading SKU directory:`, dirError)
+      }
+      
       return NextResponse.json(
         { error: 'No processed files found for this SKU' },
         { status: 404 }

@@ -195,9 +195,11 @@ export function Results({
   const getPreviewUrl = (file: ProgressFile) => {
     // Для обработанных изображений возвращаем URL из ответа API
     if (file.type === 'image' && file.status === 'done' && file.url) {
+      console.log(`Using preview URL for ${file.originalName}: ${file.url}`)
       return file.url
     }
     // Для ошибок или других случаев - placeholder
+    console.log(`Using placeholder for ${file.originalName}, status: ${file.status}`)
     return file.type === 'image' ? '/placeholder-image.jpg' : '/placeholder-video.jpg'
   }
 

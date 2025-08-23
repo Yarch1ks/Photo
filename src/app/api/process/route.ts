@@ -192,7 +192,20 @@ export async function POST(request: NextRequest) {
       processedFiles
     }
     
+    console.log(`Writing process info to: ${processInfoPath}`)
+    console.log(`Process info contains ${processedFiles.length} processed files`)
+    
     await writeFile(processInfoPath, JSON.stringify(processInfo, null, 2))
+    console.log(`Process info saved successfully`)
+    
+    // Проверяем, что файл был создан
+    try {
+      const savedContent = await readFile(processInfoPath, 'utf-8')
+      console.log(`Process info file size: ${savedContent.length} bytes`)
+      console.log(`Process info preview: ${savedContent.substring(0, 200)}...`)
+    } catch (error) {
+      console.error(`Error reading saved process info:`, error)
+    }
 
     return NextResponse.json({
       success: true,
