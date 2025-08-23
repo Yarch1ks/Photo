@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+    
+    console.log('🔑 PhotoRoom token status check completed')
 
     // Фильтруем только изображения для обработки
     const imageFiles = files.filter(file => file.type === 'image')
@@ -119,6 +121,7 @@ export async function POST(request: NextRequest) {
           console.log(`📸 Sending file to PhotoRoom: ${file.fileName}, size: ${fileBuffer.length} bytes`)
           
           // Удаляем фон через PhotoRoom
+          console.log('🚀 Calling PhotoRoom API...')
           const processedBuffer = await photoRoomService.removeBackground(fileBuffer)
           
           console.log(`✅ PhotoRoom processing completed for: ${file.fileName}, processed size: ${processedBuffer.length} bytes`)
