@@ -443,7 +443,28 @@ export function Results({
             </button>
 
             <button
-              onClick={onRestart}
+              onClick={async () => {
+                try {
+                  // Вызываем cleanup API перед перезапуском
+                  const response = await fetch('/api/cleanup', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ sku }),
+                  })
+
+                  if (!response.ok) {
+                    throw new Error('Failed to cleanup files')
+                  }
+
+                  // После успешной очистки вызываем onRestart
+                  onRestart()
+                } catch (error) {
+                  console.error('Cleanup error:', error)
+                  onError('Ошибка при очистке файлов')
+                }
+              }}
               className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />

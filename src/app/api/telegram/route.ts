@@ -29,19 +29,21 @@ export async function POST(request: NextRequest) {
     const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
     const skuDir = join(uploadDir, sku)
     
-    let skuFiles: string[]
+    // Читаем process-info.json для получения списка обработанных файлов
+    const processInfoPath = join(skuDir, `${sku}-process-info.json`)
+    let processInfo
     try {
-      skuFiles = await readdir(skuDir)
-      console.log(`Found ${skuFiles.length} files for SKU ${sku}:`, skuFiles)
+      const processInfoContent = await readFile(processInfoPath, 'utf-8')
+      processInfo = JSON.parse(processInfoContent)
       
-      if (skuFiles.length === 0) {
+      if (!processInfo.processedFiles || processInfo.processedFiles.length === 0) {
         return NextResponse.json(
           { error: 'No processed files found for this SKU' },
           { status: 404 }
         )
       }
     } catch (error) {
-      console.error(`Error reading directory for SKU ${sku}:`, error)
+      console.error(`Error reading process info for SKU ${sku}:`, error)
       return NextResponse.json(
         { error: 'No processed files found for this SKU' },
         { status: 404 }
@@ -90,19 +92,22 @@ export async function POST(request: NextRequest) {
         // Записываем данные в файл
         archive.pipe(output)
 
-        // Добавляем все файлы из SKU директории в архив
-        for (const file of skuFiles) {
-          const filePath = join(skuDir, file)
-          console.log(`Adding file to archive: ${filePath}`)
-          
-          try {
-            const fileStats = readFileSync(filePath)
-            archive.append(fileStats, { name: file })
-            console.log(`✅ Added file to archive: ${file} (${fileStats.length} bytes)`)
-          } catch (error) {
-            console.error(`❌ Error adding file ${file} to archive:`, error)
-            reject(new Error(`Failed to add file ${file} to archive: ${error}`))
-            return
+        // Добавляем только обработанные файлы в архив
+        for (const file of processInfo.processedFiles) {
+          if (file.type === 'image') {
+            const filePath = file.processedPath
+            console.log(`Adding file to archive: ${filePath}`)
+            
+            try {
+              const fileStats = readFileSync(filePath)
+              const fileName = filePath.split('/').pop() || ''
+              archive.append(fileStats, { name: fileName })
+              console.log(`✅ Added file to archive: ${fileName} (${fileStats.length} bytes)`)
+            } catch (error) {
+              console.error(`❌ Error adding file to archive:`, error)
+              reject(new Error(`Failed to add file to archive: ${error}`))
+              return
+            }
           }
         }
 
@@ -134,7 +139,7 @@ export async function POST(request: NextRequest) {
     const formData = new FormData()
     formData.append('chat_id', String(numericChatId))
     formData.append('document', zipFile)
-    formData.append('caption', `Обработанные фотографии для артикула: ${sku}\nВсего файлов: ${skuFiles.length}`)
+    formData.append('caption', `Обработанные фотографии для артикула: ${sku}\nВсего файлов: ${processInfo.processedFiles.length}`)
 
     console.log('Sending to Telegram with FormData:', {
       chatId,
@@ -163,20 +168,12 @@ export async function POST(request: NextRequest) {
     const result = await response.json()
     console.log('File sent to Telegram successfully:', result)
 
-    // Читаем process-info.json для получения списка файлов для удаления
-    const processInfoPath = join(skuDir, `${sku}-process-info.json`)
-    const processInfo = JSON.parse(await readFile(processInfoPath, 'utf-8'))
-
-    // Удаляем оригинальные файлы после успешной отправки
-    if (processInfo.filesToDelete) {
-      for (const filePath of processInfo.filesToDelete) {
-        try {
-          await unlink(filePath)
-          console.log(`Deleted original file: ${filePath}`)
-        } catch (error) {
-          console.error(`Error deleting file ${filePath}:`, error)
-        }
-      }
+    // Удаляем ZIP файл после отправки
+    try {
+      await unlink(zipFilePath)
+      console.log(`Deleted ZIP file: ${zipFilePath}`)
+    } catch (error) {
+      console.error(`Error deleting ZIP file: ${error}`)
     }
 
     return NextResponse.json({

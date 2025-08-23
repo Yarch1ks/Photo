@@ -70,8 +70,12 @@ export async function POST(request: NextRequest) {
     const totalFiles = imageFiles.length + videoFiles.length
     let fileCounter = 1
     
-    // Сохраняем пути к оригинальным файлам для удаления после обработки
-    const originalFilesToDelete: string[] = []
+    // Массив для хранения информации о файлах
+    const processedFiles: {
+      originalPath: string;
+      processedPath: string;
+      type: 'image' | 'video';
+    }[] = []
 
     // Обрабатываем видео (просто пропускаем)
     for (const videoFile of videoFiles) {
@@ -132,8 +136,12 @@ export async function POST(request: NextRequest) {
           
           console.log(`Processed file saved to: ${processedPath}`)
           
-          // Добавляем оригинальный файл в список для удаления
-          originalFilesToDelete.push(filePath)
+          // Сохраняем информацию о файлах
+          processedFiles.push({
+            originalPath: filePath,
+            processedPath: processedPath,
+            type: 'image'
+          })
           
           return {
             id: file.id,
@@ -181,7 +189,7 @@ export async function POST(request: NextRequest) {
     
     const processInfo = {
       results,
-      filesToDelete: originalFilesToDelete
+      processedFiles
     }
     
     await writeFile(processInfoPath, JSON.stringify(processInfo, null, 2))
