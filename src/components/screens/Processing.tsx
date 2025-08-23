@@ -10,7 +10,8 @@ import {
   Loader2,
   Send
 } from 'lucide-react'
-import { ProgressTracker, type ProgressFile } from '@/components/ui/ProgressTracker'
+import { ProgressTracker } from '@/components/ui/ProgressTracker'
+import type { ProgressFile } from '@/lib/types'
 import { generateFileName } from '@/lib/utils/validation'
 
 interface ProcessingProps {

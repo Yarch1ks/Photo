@@ -1,29 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  CheckCircle, 
-  Clock, 
-  AlertCircle, 
+import {
+  CheckCircle,
+  Clock,
+  AlertCircle,
   Loader2,
   FileImage,
   Video
 } from 'lucide-react'
-
-export type FileStatus = 'queued' | 'processing' | 'done' | 'error' | 'skipped'
-
-export interface ProgressFile {
-  id: string
-  name: string
-  type: 'image' | 'video'
-  status: FileStatus
-  progress?: number
-  error?: string
-  originalName: string
-  finalName: string
-  processedPath?: string
-  url?: string
-}
+import type { FileStatus, ProgressFile } from '@/lib/types'
 
 interface ProgressTrackerProps {
   files: ProgressFile[]

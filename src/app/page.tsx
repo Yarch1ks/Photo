@@ -5,7 +5,7 @@ import { SKUInput } from '@/components/screens/SKUInput'
 import { MediaUpload } from '@/components/screens/MediaUpload'
 import { Processing } from '@/components/screens/Processing'
 import { Results } from '@/components/screens/Results'
-import type { ProgressFile } from '@/components/ui/ProgressTracker'
+import type { ProgressFile } from '@/lib/types'
 
 type Screen = 'sku' | 'media' | 'processing' | 'results'
 

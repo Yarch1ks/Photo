@@ -79,12 +79,18 @@ export interface AppError {
 }
 
 // Типы для прогресса файлов
+export type FileStatus = 'queued' | 'processing' | 'done' | 'error' | 'skipped'
+
 export interface ProgressFile {
   id: string
+  name: string
   originalName: string
   finalName: string
-  status: 'done' | 'error' | 'skipped'
+  status: FileStatus
   error?: string
   previewUrl?: string
   type: 'image' | 'video'
+  progress?: number
+  url?: string
+  processedPath?: string
 }
