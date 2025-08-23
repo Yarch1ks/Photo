@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`Working directory: ${workingDir}`)
     console.log(`Upload directory: ${uploadDir}`)
+    console.log(`Environment: Railway = ${!!process.env.RAILWAY_SERVICE_NAME}`)
     
     try {
       // Проверяем, существует ли директория
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.log(`Creating directory: ${uploadDir}`)
         await fs.mkdir(uploadDir, { recursive: true })
+        console.log(`Directory created successfully: ${uploadDir}`)
       }
     } catch (error) {
       console.error('Error creating directory:', error)
@@ -57,8 +59,11 @@ export async function POST(request: NextRequest) {
     const processedFiles = []
 
     for (const file of files) {
+      console.log(`Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`)
+      
       // Валидация размера (25MB max)
       if (file.size > 25 * 1024 * 1024) {
+        console.error(`File ${file.name} exceeds 25MB limit`)
         return NextResponse.json(
           { error: `File ${file.name} exceeds 25MB limit` },
           { status: 400 }
@@ -72,6 +77,7 @@ export async function POST(request: NextRequest) {
       ]
       
       if (!allowedTypes.includes(file.type)) {
+        console.error(`File ${file.name} has unsupported type: ${file.type}`)
         return NextResponse.json(
           { error: `File ${file.name} has unsupported type: ${file.type}` },
           { status: 400 }
@@ -84,10 +90,19 @@ export async function POST(request: NextRequest) {
       const fileName = generateFileName(sku, fileIndex, fileExtension!)
       const filePath = join(uploadDir, fileName)
 
-      // Сохраняем файл
-      const bytes = await file.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-      await writeFile(filePath, buffer)
+      console.log(`Generated filename: ${fileName}`)
+      console.log(`File path: ${filePath}`)
+
+      try {
+        // Сохраняем файл
+        const bytes = await file.arrayBuffer()
+        const buffer = Buffer.from(bytes)
+        await writeFile(filePath, buffer)
+        console.log(`File saved successfully: ${filePath}`)
+      } catch (error) {
+        console.error(`Error saving file ${filePath}:`, error)
+        throw error
+      }
 
       processedFiles.push({
         id: `file_${fileIndex}`,
