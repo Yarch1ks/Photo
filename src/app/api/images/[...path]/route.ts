@@ -7,8 +7,8 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    const workingDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp' : process.cwd()
-    const filePath = join(workingDir, 'temp', ...params.path)
+    const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    const filePath = join(uploadDir, ...params.path)
     console.log(`Serving image from: ${filePath}`)
     
     // Читаем файл

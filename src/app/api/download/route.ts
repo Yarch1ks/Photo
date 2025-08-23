@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Проверяем, существует ли директория с файлами
-    const skuDir = join(process.cwd(), 'temp', sku)
+    const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    const skuDir = join(uploadDir)
     try {
       await readdir(skuDir)
     } catch {
@@ -46,13 +47,12 @@ export async function POST(request: NextRequest) {
 
     // Собираем файлы для архива
     const filesToArchive = []
-    const processedDir = join(skuDir)
-    const files = await readdir(processedDir)
+    const files = await readdir(skuDir)
 
-    // Читаем информацию о процессинге из временного файла
+    // Читаем информацию о процессинге
     let processInfo = []
     try {
-      const processInfoPath = join(process.cwd(), 'temp', sku, 'process-info.json')
+      const processInfoPath = join(uploadDir, `${sku}-process-info.json`)
       const processInfoContent = await readFile(processInfoPath, 'utf-8')
       processInfo = JSON.parse(processInfoContent)
     } catch {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     for (const file of files) {
-      const filePath = join(processedDir, file)
+      const filePath = join(skuDir, file)
       const stats = await import('fs').then(fs => fs.promises.stat(filePath))
       
       // Определяем тип файла
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Если включены оригиналы, добавляем их в отдельную папку
     if (includeOriginals) {
-      const originalsDir = join(process.cwd(), 'temp', sku, 'originals')
+      const originalsDir = join(uploadDir, 'originals')
       try {
         const originalFiles = await readdir(originalsDir)
         for (const file of originalFiles) {

@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
     console.log('Using chatId:', { original: chatId, numeric: numericChatId })
 
     // Проверяем, существует ли директория с обработанными файлами
-    const tempDir = join(process.cwd(), 'temp', sku)
-    const files = await readdir(tempDir)
+    const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    const files = await readdir(uploadDir)
     
     if (files.length === 0) {
       return NextResponse.json(
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Создаем ZIP архив со всеми обработанными файлами
     const zipFileName = `${sku}.zip`
-    const zipFilePath = join(tempDir, zipFileName)
+    const zipFilePath = join(uploadDir, zipFileName)
 
     try {
       // Создаем ZIP архив с помощью archiver
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
       // Добавляем все файлы из директории в архив
       for (const file of files) {
-        const filePath = join(tempDir, file)
+        const filePath = join(uploadDir, file)
         const fileStats = await readFile(filePath)
         archive.append(fileStats, { name: file })
       }
