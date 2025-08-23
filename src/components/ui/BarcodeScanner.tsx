@@ -110,32 +110,29 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
     try {
       console.log('🔍 ZXing сканирование начато')
       
-      const detect = async () => {
-        if (!isScanning) return
-
-        try {
-          // Используем ZXing для детекции
-          zxingReader.decodeFromVideoDevice(null, videoRef.current, (result, error) => {
-            if (result) {
-              console.log('✅ ZXing обнаружил штрих-код:', result.getText())
-              console.log('🎉 Штрих-код успешно обнаружен!')
-              onDetected(result.getText())
-              stopScanning()
+      // Используем правильный метод ZXing для непрерывного сканирования
+      zxingReader.decodeFromVideoDevice(
+        null, // deviceId - null для использования камеры по умолчанию
+        videoRef.current,
+        (result, error) => {
+          if (result) {
+            console.log('✅ ZXing обнаружил штрих-код:', result.getText())
+            console.log('🎉 Штрих-код успешно обнаружен!')
+            onDetected(result.getText())
+            stopScanning()
+            return
+          }
+          
+          if (error) {
+            // Ожидаемая ошибка, когда штрих-код не найден
+            if (error.message && !error.message.includes('No MultiFormat Readers were able to detect the code')) {
+              console.log('❌ ZXing ошибка:', error.message)
             }
-            
-            if (error) {
-              console.log('❌ ZXing не обнаружил штрих-код:', error.message)
-            }
-          })
-        } catch (error) {
-          console.error('❌ Ошибка ZXing детекции:', error)
+          }
         }
-
-        // Непрерывное сканирование - запускаем снова
-        animationRef.current = requestAnimationFrame(detect)
-      }
-
-      detect()
+      )
+      
+      // ZXing сам управляет непрерывным сканированием, нам не нужно requestAnimationFrame
     } catch (error) {
       console.error('❌ Ошибка ZXing:', error)
       // Переходим к fallback методу
