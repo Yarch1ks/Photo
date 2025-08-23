@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Camera, X, ScanLine } from 'lucide-react'
+import { Camera, X, ScanLine, Search } from 'lucide-react'
 import { isBarcodeDetectorSupported } from '@/lib/utils/validation'
 
 interface BarcodeScannerProps {
@@ -14,6 +14,7 @@ interface BarcodeScannerProps {
 export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: BarcodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [scanStarted, setScanStarted] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -35,6 +36,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
     try {
       setCameraError(null)
       setIsScanning(true)
+      setScanStarted(true)
 
       // Проверяем поддержку BarcodeDetector
       const barcodeDetectorSupported = isBarcodeDetectorSupported()
@@ -68,12 +70,14 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
       console.error('Ошибка доступа к камере:', error)
       setCameraError('Не удалось доступиться к камере. Пожалуйста, проверьте разрешения.')
       setIsScanning(false)
+      setScanStarted(false)
       onError('Не удалось доступиться к камере')
     }
   }
 
   const stopScanning = () => {
     setIsScanning(false)
+    setScanStarted(false)
     
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current)
@@ -101,11 +105,20 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
         return
       }
 
-      const barcodeDetector = new (window as any).BarcodeDetector({
-        formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
-      })
+      let barcodeDetector: any
+      try {
+        barcodeDetector = new (window as any).BarcodeDetector({
+          formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
+        })
 
-      console.log('BarcodeDetector инициализирован с форматами:', barcodeDetector.formats)
+        console.log('BarcodeDetector инициализирован успешно')
+        console.log('Доступные форматы:', barcodeDetector.getSupportedFormats ? await barcodeDetector.getSupportedFormats() : 'Неизвестно')
+      } catch (error) {
+        console.error('Ошибка инициализации BarcodeDetector:', error)
+        // Переходим к fallback методу
+        scanWithFallback()
+        return
+      }
 
       const detect = async () => {
         if (!isScanning) return
@@ -119,6 +132,8 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
             onDetected(barcode)
             stopScanning()
             return
+          } else {
+            console.log('Штрих-коды не обнаружены')
           }
         } catch (error) {
           console.error('Ошибка детекции штрих-кода:', error)
@@ -165,6 +180,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
   }
 
   const handleManualClose = () => {
+    stopScanning()
     onClose()
   }
 
@@ -224,12 +240,37 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
               <canvas ref={canvasRef} className="hidden" />
 
               <div className="mt-4 text-center">
-                <p className="text-sm text-gray-600">
-                  Наведите штрих-код в рамку для сканирования
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Поддерживаются форматы: CODE 39, EAN-13, Code 128, UPC-A и др.
-                </p>
+                {!scanStarted ? (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Нажмите кнопку "Начать сканирование" для запуска камеры
+                    </p>
+                    <button
+                      onClick={startScanning}
+                      className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 mx-auto"
+                    >
+                      <Search className="w-4 h-4" />
+                      Начать сканирование
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      Наведите штрих-код в рамку для сканирования
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Поддерживаются форматы: CODE 39, EAN-13, Code 128, UPC-A и др.
+                    </p>
+                    {isScanning && (
+                      <div className="mt-2">
+                        <div className="inline-flex items-center gap-2 text-green-600">
+                          <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
+                          <span className="text-sm">Сканирование...</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
