@@ -88,15 +88,14 @@ export async function POST(request: NextRequest) {
           const finalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.jpg`
           
           // Читаем файл
-          const workingDir = process.env.RAILWAY_WORKING_DIR || process.cwd()
-          const filePath = join(workingDir, 'temp', sku, file.fileName)
+          const filePath = join('/tmp', 'temp', sku, file.fileName)
           const fileBuffer = await readFile(filePath)
           
           // Удаляем фон через PhotoRoom
           const processedBuffer = await photoRoomService.removeBackground(fileBuffer)
           
           // Сохраняем обработанный файл
-          const processedPath = join(workingDir, 'temp', sku, finalName)
+          const processedPath = join('/tmp', 'temp', sku, finalName)
           await writeFile(processedPath, processedBuffer)
           
           // Принудительно синхронизируем файл с диском
@@ -146,8 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Сохраняем информацию о процессинге в отдельный файл для использования при скачивании
-    const workingDir = process.env.RAILWAY_WORKING_DIR || process.cwd()
-    const processInfoPath = join(workingDir, 'temp', sku, 'process-info.json')
+    const processInfoPath = join('/tmp', 'temp', sku, 'process-info.json')
     await writeFile(processInfoPath, JSON.stringify(results, null, 2))
 
     // Не удаляем оригинальные файлы - они могут быть полезны для отладки
