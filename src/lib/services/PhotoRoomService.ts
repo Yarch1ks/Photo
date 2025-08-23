@@ -27,6 +27,8 @@ export class PhotoRoomService {
    * @returns Promise<Buffer> с обработанным изображением
    */
   async removeBackground(imageBuffer: Buffer): Promise<Buffer> {
+    console.log('🚀 Starting PhotoRoom API call...')
+    
     const formData = new FormData()
     
     // Добавляем изображение как binary data
@@ -45,6 +47,8 @@ export class PhotoRoomService {
     // Экспоненциальная задержка с ретраями
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
+        console.log(`📡 PhotoRoom API attempt ${attempt}/${this.maxRetries}`)
+        
         const response = await fetch(this.baseUrl, {
           method: 'POST',
           headers: {
@@ -54,8 +58,11 @@ export class PhotoRoomService {
           body: formData,
         })
 
+        console.log(`📊 PhotoRoom API response status: ${response.status}`)
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}))
+          console.error(`❌ PhotoRoom API error:`, errorData)
           
           // Обработка специфичных ошибок PhotoRoom
           if (response.status === 429) {
@@ -71,10 +78,14 @@ export class PhotoRoomService {
 
         // PhotoRoom возвращает изображение напрямую, а не JSON
         const imageBuffer = await response.arrayBuffer()
-        return Buffer.from(imageBuffer)
+        const resultBuffer = Buffer.from(imageBuffer)
+        
+        console.log(`✅ PhotoRoom API success! Processed image size: ${resultBuffer.length} bytes`)
+        return resultBuffer
 
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
+        console.error(`❌ PhotoRoom API attempt ${attempt} failed:`, lastError.message)
         
         // Если это последняя попытка, выбрасываем ошибку
         if (attempt === this.maxRetries) {
@@ -83,10 +94,12 @@ export class PhotoRoomService {
 
         // Экспоненциальная задержка перед следующей попыткой
         const delay = this.retryDelay * Math.pow(2, attempt - 1)
+        console.log(`⏳ Retrying in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
 
+    console.error('💀 All PhotoRoom API attempts failed')
     throw lastError || new Error('Failed to remove background after retries')
   }
 

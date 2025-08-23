@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('🔧 Initializing PhotoRoomService...')
     const photoRoomService = new PhotoRoomService()
     const results: ProcessResponse['results'] = []
 
@@ -96,8 +97,12 @@ export async function POST(request: NextRequest) {
           const filePath = join(uploadDir, file.fileName)
           const fileBuffer = await readFile(filePath)
           
+          console.log(`📸 Sending file to PhotoRoom: ${file.fileName}, size: ${fileBuffer.length} bytes`)
+          
           // Удаляем фон через PhotoRoom
           const processedBuffer = await photoRoomService.removeBackground(fileBuffer)
+          
+          console.log(`✅ PhotoRoom processing completed for: ${file.fileName}, processed size: ${processedBuffer.length} bytes`)
           
           // Сохраняем обработанный файл в ту же директорию
           const processedPath = join(uploadDir, finalName)
