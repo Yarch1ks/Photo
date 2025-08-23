@@ -7,8 +7,9 @@ function generateFileName(sku: string, index: number, extension: string): string
   return `${sku}_${String(index).padStart(3, '0')}.${extension}`
 }
 
-// Отключаем статическую генерацию для этого API route
+// Явно отключаем статическую генерацию для этого API route
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
