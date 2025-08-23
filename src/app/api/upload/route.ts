@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Создаем временную директорию для этого SKU
-    const uploadDir = join('/tmp', 'temp', sku)
+    const uploadDir = join(process.cwd(), 'temp', sku)
     
     // Очищаем старые файлы для этого SKU, если они существуют
     try {

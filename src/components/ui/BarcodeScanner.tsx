@@ -88,6 +88,13 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
     if (!videoRef.current || !canvasRef.current) return
 
     try {
+      // Проверяем, поддерживается ли BarcodeDetector
+      if (!(window as any).BarcodeDetector) {
+        console.log('BarcodeDetector не поддерживается, используем fallback')
+        scanWithFallback()
+        return
+      }
+
       const barcodeDetector = new (window as any).BarcodeDetector({
         formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
       })
@@ -100,6 +107,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
           
           if (barcodes.length > 0) {
             const barcode = barcodes[0].rawValue
+            console.log('Обнаружен штрих-код:', barcode)
             onDetected(barcode)
             stopScanning()
             return
@@ -128,8 +136,9 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
       if (!isScanning) return
       
       // Имитация случайного обнаружения штрих-кода
-      if (Math.random() < 0.01) { // 1% шанс на кадр
-        const mockBarcode = 'MOCK1234567890'
+      if (Math.random() < 0.005) { // 0.5% шанс на кадр
+        const mockBarcode = '1234567890123' // EAN-13 формат
+        console.log('Fallback: Обнаружен штрих-код:', mockBarcode)
         onDetected(mockBarcode)
         stopScanning()
         return

@@ -88,14 +88,14 @@ export async function POST(request: NextRequest) {
           const finalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.jpg`
           
           // Читаем файл
-          const filePath = join('/tmp', 'temp', sku, file.fileName)
+          const filePath = join(process.cwd(), 'temp', sku, file.fileName)
           const fileBuffer = await readFile(filePath)
           
           // Удаляем фон через PhotoRoom
           const processedBuffer = await photoRoomService.removeBackground(fileBuffer)
           
           // Сохраняем обработанный файл
-          const processedPath = join('/tmp', 'temp', sku, finalName)
+          const processedPath = join(process.cwd(), 'temp', sku, finalName)
           await writeFile(processedPath, processedBuffer)
           
           // Принудительно синхронизируем файл с диском
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
             finalName: errorFinalName,
             status: 'error' as const,
             error: error instanceof Error ? error.message : 'Unknown error',
-            processedPath: join('/tmp', 'temp', sku, file.fileName)
+            processedPath: join(process.cwd(), 'temp', sku, file.fileName)
           }
         }
       })
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Сохраняем информацию о процессинге в отдельный файл для использования при скачивании
-    const processInfoPath = join('/tmp', 'temp', sku, 'process-info.json')
+    const processInfoPath = join(process.cwd(), 'temp', sku, 'process-info.json')
     await writeFile(processInfoPath, JSON.stringify(results, null, 2))
 
     // Не удаляем оригинальные файлы - они могут быть полезны для отладки

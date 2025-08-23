@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    const filePath = join('/tmp', 'temp', ...params.path)
+    const filePath = join(process.cwd(), 'temp', ...params.path)
     console.log(`Serving image from: ${filePath}`)
     
     // Читаем файл
