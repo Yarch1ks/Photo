@@ -31,28 +31,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Создаем временную директорию для этого SKU
+    // Используем простую временную директорию без вложенности SKU
     // В Railway используем /tmp, в локальной среде - process.cwd()
     const workingDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp' : process.cwd()
-    const uploadDir = join(workingDir, 'temp', sku)
+    const uploadDir = join(workingDir, 'temp')
     
     console.log(`Working directory: ${workingDir}`)
     console.log(`Upload directory: ${uploadDir}`)
     console.log(`Environment: Railway = ${!!process.env.RAILWAY_SERVICE_NAME}`)
+    console.log(`SKU: ${sku}`)
     
     try {
-      // Проверяем, существует ли директория
-      try {
-        await access(uploadDir)
-        console.log(`Directory exists: ${uploadDir}`)
-      } catch (error) {
-        console.log(`Creating directory: ${uploadDir}`)
-        await mkdir(uploadDir, { recursive: true })
-        console.log(`Directory created successfully: ${uploadDir}`)
-      }
+      // Просто создаем директорию без проверок
+      await mkdir(uploadDir, { recursive: true })
+      console.log(`Directory created: ${uploadDir}`)
     } catch (error) {
       console.error('Error creating directory:', error)
-      throw error
+      // Продолжаем работу даже если директория не создалась
     }
 
     const processedFiles = []
@@ -91,6 +86,8 @@ export async function POST(request: NextRequest) {
 
       console.log(`Generated filename: ${fileName}`)
       console.log(`File path: ${filePath}`)
+      console.log(`File size: ${file.size}`)
+      console.log(`File type: ${file.type}`)
 
       try {
         // Сохраняем файл
