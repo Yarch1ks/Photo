@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir, access, unlink } from 'fs/promises'
 import { join } from 'path'
 
-// Простая функция генерации имени файла
-function generateFileName(sku: string, index: number, extension: string): string {
-  return `${sku}_${String(index).padStart(3, '0')}.${extension}`
-}
-
 // Явно отключаем статическую генерацию для этого API route
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +11,7 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData()
     const sku = formData.get('sku') as string
-    const files = formData.getAll('files') as any[]
+    const files = formData.getAll('files')
     
     console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value && typeof value === 'object' && 'name' in value ? value.name : value]))
     
@@ -36,14 +31,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Фильтруем и проверяем файлы
-    const validFiles = files.filter(file => {
-      if (file && typeof file === 'object' && 'name' in file && 'size' in file && 'type' in file) {
-        return true
+    // Фильтруем и проверяем файлы для Node.js 18 совместимости
+    const validFiles = []
+    for (const file of files) {
+      // Проверяем что файл имеет необходимые методы и свойства
+      if (file && 
+          typeof file === 'object' && 
+          'name' in file && 
+          'size' in file && 
+          'type' in file && 
+          typeof (file as any).arrayBuffer === 'function') {
+        validFiles.push(file)
+      } else {
+        console.warn('Invalid file detected:', file)
       }
-      console.warn('Invalid file detected:', file)
-      return false
-    })
+    }
 
     if (validFiles.length === 0) {
       console.error('No valid files provided')
@@ -55,7 +57,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`Processing ${validFiles.length} valid files for SKU: ${sku}`)
 
-    
     // Детальное логирование переменных окружения для диагностики
     console.log('Environment variables for debugging:')
     console.log('NODE_ENV:', process.env.NODE_ENV)
@@ -126,8 +127,8 @@ export async function POST(request: NextRequest) {
       console.log(`File type: ${file.type}`)
 
       try {
-        // Сохраняем файл
-        const bytes = await file.arrayBuffer()
+        // Сохраняем файл с Node.js 18 совместимым способом
+        const bytes = await (file as any).arrayBuffer()
         const buffer = Buffer.from(bytes)
         await writeFile(filePath, buffer)
         console.log(`✅ File saved successfully: ${filePath}`)
