@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir, readdir, rm } from 'fs/promises'
+import { writeFile, mkdir, readdir, rm, access } from 'fs/promises'
 import { join } from 'path'
 import { generateFileName } from '@/lib/utils/validation'
 
@@ -42,13 +42,12 @@ export async function POST(request: NextRequest) {
     
     try {
       // Проверяем, существует ли директория
-      const fs = require('fs').promises
       try {
-        await fs.access(uploadDir)
+        await access(uploadDir)
         console.log(`Directory exists: ${uploadDir}`)
       } catch (error) {
         console.log(`Creating directory: ${uploadDir}`)
-        await fs.mkdir(uploadDir, { recursive: true })
+        await mkdir(uploadDir, { recursive: true })
         console.log(`Directory created successfully: ${uploadDir}`)
       }
     } catch (error) {
