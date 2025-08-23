@@ -99,6 +99,8 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
         formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
       })
 
+      console.log('BarcodeDetector инициализирован с форматами:', barcodeDetector.formats)
+
       const detect = async () => {
         if (!isScanning) return
 
@@ -107,7 +109,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
           
           if (barcodes.length > 0) {
             const barcode = barcodes[0].rawValue
-            console.log('Обнаружен штрих-код:', barcode)
+            console.log('Обнаружен штрих-код:', barcode, 'Формат:', barcodes[0].format)
             onDetected(barcode)
             stopScanning()
             return
@@ -136,7 +138,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
       if (!isScanning) return
       
       // Имитация случайного обнаружения штрих-кода
-      if (Math.random() < 0.005) { // 0.5% шанс на кадр
+      if (Math.random() < 0.01) { // 1% шанс на кадр
         // Генерируем CODE 39 формат (буквы + цифры, длиной до 25 символов)
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-$./+'
         const length = Math.floor(Math.random() * 10) + 10 // 10-19 символов

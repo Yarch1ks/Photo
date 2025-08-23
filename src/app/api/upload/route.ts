@@ -32,7 +32,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Создаем временную директорию для этого SKU
-    const uploadDir = join(process.cwd(), 'temp', sku)
+    // В Railway используем RAILWAY_WORKING_DIR или process.cwd()
+    const workingDir = process.env.RAILWAY_WORKING_DIR || process.cwd()
+    const uploadDir = join(workingDir, 'temp', sku)
     
     // Очищаем старые файлы для этого SKU, если они существуют
     try {
