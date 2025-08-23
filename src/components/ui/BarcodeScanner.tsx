@@ -40,9 +40,10 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
 
       // Проверяем поддержку BarcodeDetector
       const barcodeDetectorSupported = isBarcodeDetectorSupported()
-      console.log('BarcodeDetector поддерживается:', barcodeDetectorSupported)
+      console.log('🔍 BarcodeDetector поддерживается:', barcodeDetectorSupported)
 
       // Запрос доступа к камере
+      console.log('📹 Запрашиваем доступ к камере...')
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -50,24 +51,26 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
           height: { ideal: 720 }
         }
       })
+      console.log('✅ Доступ к камере получен')
 
       streamRef.current = stream
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         await videoRef.current.play()
+        console.log('🎬 Видео началось играть')
       }
 
       // Начинаем сканирование
       if (barcodeDetectorSupported) {
-        console.log('Используем BarcodeDetector')
+        console.log('🔍 Используем BarcodeDetector')
         scanWithBarcodeDetector()
       } else {
-        console.log('BarcodeDetector не поддерживается, используем fallback')
+        console.log('⚠️ BarcodeDetector не поддерживается, используем fallback')
         scanWithFallback()
       }
     } catch (error) {
-      console.error('Ошибка доступа к камере:', error)
+      console.error('❌ Ошибка доступа к камере:', error)
       setCameraError('Не удалось доступиться к камере. Пожалуйста, проверьте разрешения.')
       setIsScanning(false)
       setScanStarted(false)
@@ -100,7 +103,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
     try {
       // Проверяем, поддерживается ли BarcodeDetector
       if (!(window as any).BarcodeDetector) {
-        console.log('BarcodeDetector не поддерживается, используем fallback')
+        console.log('⚠️ BarcodeDetector не поддерживается, используем fallback')
         scanWithFallback()
         return
       }
@@ -111,10 +114,15 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
           formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
         })
 
-        console.log('BarcodeDetector инициализирован успешно')
-        console.log('Доступные форматы:', barcodeDetector.getSupportedFormats ? await barcodeDetector.getSupportedFormats() : 'Неизвестно')
+        console.log('✅ BarcodeDetector инициализирован успешно')
+        try {
+          const formats = await barcodeDetector.getSupportedFormats()
+          console.log('📋 Доступные форматы:', formats)
+        } catch (error) {
+          console.log('⚠️ Не удалось получить форматы:', error)
+        }
       } catch (error) {
-        console.error('Ошибка инициализации BarcodeDetector:', error)
+        console.error('❌ Ошибка инициализации BarcodeDetector:', error)
         // Переходим к fallback методу
         scanWithFallback()
         return
@@ -128,15 +136,22 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
           
           if (barcodes.length > 0) {
             const barcode = barcodes[0].rawValue
-            console.log('Обнаружен штрих-код:', barcode, 'Формат:', barcodes[0].format)
+            console.log('✅ Обнаружен штрих-код:', barcode, 'Формат:', barcodes[0].format)
+            console.log('🎉 Штрих-код успешно обнаружен!')
             onDetected(barcode)
             stopScanning()
             return
           } else {
-            console.log('Штрих-коды не обнаружены')
+            console.log('❌ Штрих-коды не обнаружены')
+            console.log('📹 Проверка видео потока...')
+            if (videoRef.current) {
+              console.log('📏 Видео размеры:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight)
+              console.log('🎬 Видео играет:', !videoRef.current.paused && !videoRef.current.ended)
+              console.log('🎯 Попробуйте поднести штрих-код ближе к камере')
+            }
           }
         } catch (error) {
-          console.error('Ошибка детекции штрих-кода:', error)
+          console.error('❌ Ошибка детекции штрих-кода:', error)
         }
 
         animationRef.current = requestAnimationFrame(detect)
@@ -144,7 +159,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
 
       detect()
     } catch (error) {
-      console.error('Ошибка BarcodeDetector:', error)
+      console.error('❌ Ошибка BarcodeDetector:', error)
       // Переходим к fallback методу
       scanWithFallback()
     }
@@ -152,7 +167,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
 
   const scanWithFallback = () => {
     // Простая fallback реализация - можно заменить на Quagga2 или ZXing
-    console.log('Используется fallback метод сканирования')
+    console.log('⚠️ Используется fallback метод сканирования')
     
     // Для демонстрации - имитация сканирования
     const simulateScan = () => {
@@ -167,7 +182,8 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
         for (let i = 0; i < length; i++) {
           mockBarcode += chars.charAt(Math.floor(Math.random() * chars.length))
         }
-        console.log('Fallback: Обнаружен CODE 39 штрих-код:', mockBarcode)
+        console.log('🎯 Fallback: Обнаружен CODE 39 штрих-код:', mockBarcode)
+        console.log('🎉 Fallback: Штрих-код успешно обнаружен!')
         onDetected(mockBarcode)
         stopScanning()
         return
@@ -261,6 +277,17 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
                     <p className="text-xs text-gray-500 mt-1">
                       Поддерживаются форматы: CODE 39, EAN-13, Code 128, UPC-A и др.
                     </p>
+                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                      <p className="text-xs text-blue-700">
+                        💡 <strong>Советы:</strong>
+                      </p>
+                      <ul className="text-xs text-blue-600 mt-1 space-y-1">
+                        <li>• Убедитесь, что штрих-код хорошо освещен</li>
+                        <li>• Держите штрих-код на расстоянии 10-30 см от камеры</li>
+                        <li>• Убедитесь, что штрих-код полностью в кадре</li>
+                        <li>• Избегайте бликов и теней</li>
+                      </ul>
+                    </div>
                     {isScanning && (
                       <div className="mt-2">
                         <div className="inline-flex items-center gap-2 text-green-600">
