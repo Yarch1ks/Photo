@@ -10,6 +10,8 @@ export async function GET(
     const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
     const filePath = join(uploadDir, ...params.path)
     console.log(`Serving image from: ${filePath}`)
+    console.log(`Upload directory: ${uploadDir}`)
+    console.log(`Params path: ${params.path.join('/')}`)
     
     // Читаем файл
     const fileBuffer = await readFile(filePath)
