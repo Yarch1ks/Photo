@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
       process.env.RAILWAY_ENVIRONMENT === 'production' ||
       process.env.VERCEL_ENV === 'production'
     
-    const uploadDir = isProduction ? '/tmp/uploads' : './uploads'
+    const baseUploadDir = isProduction ? '/tmp/uploads' : './uploads'
+    const uploadDir = join(baseUploadDir, sku)
     
     console.log(`Upload directory: ${uploadDir}, Production: ${isProduction}`)
     
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest) {
         originalName: file.name,
         fileName: fileName,
         filePath: filePath,
+        url: `/api/images/${sku}/${fileName}`,
         type: file.type.startsWith('image/') ? 'image' : 'video',
         size: file.size,
         sku: sku

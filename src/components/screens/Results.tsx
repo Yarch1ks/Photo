@@ -193,10 +193,9 @@ export function Results({
   }
 
   const getPreviewUrl = (file: ProgressFile) => {
-    // Для обработанных изображений возвращаем URL к API
-    if (file.type === 'image' && file.status === 'done' && file.finalName) {
-      // Используем finalName для формирования URL, так как это имя файла на сервере
-      return `/api/images/${sku}/${file.finalName}`
+    // Для обработанных изображений возвращаем URL из ответа API
+    if (file.type === 'image' && file.status === 'done' && file.url) {
+      return file.url
     }
     // Для ошибок или других случаев - placeholder
     return file.type === 'image' ? '/placeholder-image.jpg' : '/placeholder-video.jpg'

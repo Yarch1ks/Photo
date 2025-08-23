@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
           const finalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.jpg`
           
           // Читаем файл из правильной директории
-          const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+          const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+          const uploadDir = join(baseUploadDir, sku)
           const filePath = join(uploadDir, file.fileName)
           const fileBuffer = await readFile(filePath)
           
@@ -112,7 +113,8 @@ export async function POST(request: NextRequest) {
             originalName: file.originalName, // <-- Используем оригинальное имя файла
             finalName: finalName,
             status: 'done' as const,
-            processedPath
+            processedPath,
+            url: `/api/images/${sku}/${finalName}`
           }
           
         } catch (error) {
@@ -132,7 +134,8 @@ export async function POST(request: NextRequest) {
             finalName: errorFinalName,
             status: 'error' as const,
             error: error instanceof Error ? error.message : 'Unknown error',
-            processedPath: join(process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads', file.fileName)
+            processedPath: join(baseUploadDir, sku, file.fileName),
+            url: `/api/images/${sku}/${file.fileName}`
           }
         }
       })
@@ -144,7 +147,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Сохраняем информацию о процессинге в отдельный файл для использования при скачивании
-    const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    const uploadDir = join(baseUploadDir, sku)
     const processInfoPath = join(uploadDir, `${sku}-process-info.json`)
     await writeFile(processInfoPath, JSON.stringify(results, null, 2))
     

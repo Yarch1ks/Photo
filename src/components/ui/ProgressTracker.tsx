@@ -22,6 +22,7 @@ export interface ProgressFile {
   originalName: string
   finalName: string
   processedPath?: string
+  url?: string
 }
 
 interface ProgressTrackerProps {
