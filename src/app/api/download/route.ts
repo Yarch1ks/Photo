@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Проверяем, существует ли директория с файлами
     const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
-    const skuDir = join(uploadDir)
+    const skuDir = join(uploadDir, sku)
     try {
       await readdir(skuDir)
     } catch {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     // Читаем информацию о процессинге
     let processInfo = []
     try {
-      const processInfoPath = join(uploadDir, `${sku}-process-info.json`)
+      const processInfoPath = join(skuDir, `${sku}-process-info.json`)
       const processInfoContent = await readFile(processInfoPath, 'utf-8')
       processInfo = JSON.parse(processInfoContent)
     } catch {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Если включены оригиналы, добавляем их в отдельную папку
     if (includeOriginals) {
-      const originalsDir = join(uploadDir, 'originals')
+      const originalsDir = join(skuDir, 'originals')
       try {
         const originalFiles = await readdir(originalsDir)
         for (const file of originalFiles) {
