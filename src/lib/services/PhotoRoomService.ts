@@ -32,11 +32,11 @@ export class PhotoRoomService {
     
     const formData = new FormData()
     
-    // Добавляем изображение как binary data
+    // Добавляем изображение как binary data с правильным именем поля
     const blob = new Blob([new Uint8Array(imageBuffer)], { type: 'image/jpeg' })
-    formData.append('imageFile', blob, 'image.jpg')
+    formData.append('data', blob, 'image.jpg')
     
-    // Параметры для удаления фона и обработки
+    // Параметры для удаления фона и обработки согласно n8n конфигурации
     formData.append('background.color', 'FFFFFF')
     formData.append('outputSize', '2000x2000')
     formData.append('position.gravity', 'center')

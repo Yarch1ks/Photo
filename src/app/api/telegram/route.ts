@@ -27,9 +27,21 @@ export async function POST(request: NextRequest) {
 
     // Проверяем, существует ли директория с обработанными файлами
     const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
-    const files = await readdir(uploadDir)
+    const skuDir = join(uploadDir, sku)
     
-    if (files.length === 0) {
+    let skuFiles: string[]
+    try {
+      skuFiles = await readdir(skuDir)
+      console.log(`Found ${skuFiles.length} files for SKU ${sku}:`, skuFiles)
+      
+      if (skuFiles.length === 0) {
+        return NextResponse.json(
+          { error: 'No processed files found for this SKU' },
+          { status: 404 }
+        )
+      }
+    } catch (error) {
+      console.error(`Error reading directory for SKU ${sku}:`, error)
       return NextResponse.json(
         { error: 'No processed files found for this SKU' },
         { status: 404 }
@@ -62,9 +74,9 @@ export async function POST(request: NextRequest) {
       // Записываем данные в файл
       archive.pipe(output)
 
-      // Добавляем все файлы из директории в архив
-      for (const file of files) {
-        const filePath = join(uploadDir, file)
+      // Добавляем все файлы из SKU директории в архив
+      for (const file of skuFiles) {
+        const filePath = join(skuDir, file)
         const fileStats = await readFile(filePath)
         archive.append(fileStats, { name: file })
       }
@@ -80,7 +92,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Читаем ZIP файл как Buffer
+    console.log(`Reading ZIP file: ${zipFilePath}`)
     const zipFileBuffer = await readFile(zipFilePath)
+    console.log(`ZIP file size: ${zipFileBuffer.length} bytes`)
 
     // Создаем File объект из Buffer с правильным преобразованием
     const zipFile = new File([new Uint8Array(zipFileBuffer)], zipFileName, {
@@ -91,7 +105,7 @@ export async function POST(request: NextRequest) {
     const formData = new FormData()
     formData.append('chat_id', String(numericChatId))
     formData.append('document', zipFile)
-    formData.append('caption', `Обработанные фотографии для артикула: ${sku}\nВсего файлов: ${files.length}`)
+    formData.append('caption', `Обработанные фотографии для артикула: ${sku}\nВсего файлов: ${skuFiles.length}`)
 
     console.log('Sending to Telegram with FormData:', {
       chatId,

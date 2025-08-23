@@ -27,7 +27,7 @@ interface ProcessResponse {
 }
 
 // Ограничение на одновременные запросы к PhotoRoom
-const MAX_CONCURRENT_REQUESTS = 3
+const MAX_CONCURRENT_REQUESTS = 5
 let activeRequests = 0
 
 // Явно отключаем статическую генерацию для этого API route
