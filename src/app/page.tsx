@@ -48,8 +48,8 @@ export default function Home() {
         <header className="text-center mb-8">
           <div className="flex items-center justify-center">
             <img
-              src="https://motozilla.com.ua/wa-data/public/site/themes/motozilla_new/img/logo2.svg"
-              alt="CleanShot Pro Logo"
+              src="/favicon.ico"
+              alt="Photo SKU Processor Logo"
               className="h-12 w-auto"
             />
           </div>

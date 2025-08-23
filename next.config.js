@@ -4,7 +4,7 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/Photo' : '',
+  assetPrefix: process.env.ASSET_PREFIX || '',
   webpack: (config) => {
     config.module.rules.push({
       test: /\.heic$/i,

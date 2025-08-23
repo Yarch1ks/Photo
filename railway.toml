@@ -6,6 +6,7 @@ startCommand = "npm start"
 
 [env]
 NODE_ENV = "production"
+ASSET_PREFIX = ""
 
 # Nixpacks configuration
 [nixpacks]
