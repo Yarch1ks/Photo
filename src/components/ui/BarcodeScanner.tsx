@@ -89,7 +89,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
 
     try {
       const barcodeDetector = new (window as any).BarcodeDetector({
-        formats: ['code_128']
+        formats: ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'codabar', 'upc_a', 'upc_e']
       })
 
       const detect = async () => {
@@ -205,7 +205,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
                   Наведите штрих-код в рамку для сканирования
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Поддерживается формат Code 128
+                  Поддерживаются форматы: EAN-13, Code 128, UPC-A и др.
                 </p>
               </div>
             </div>
