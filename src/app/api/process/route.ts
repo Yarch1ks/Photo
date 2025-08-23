@@ -30,6 +30,9 @@ interface ProcessResponse {
 const MAX_CONCURRENT_REQUESTS = 3
 let activeRequests = 0
 
+// Отключаем статическую генерацию для этого API route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as ProcessRequest

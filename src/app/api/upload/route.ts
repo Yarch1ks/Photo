@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir, access } from 'fs/promises'
+import { writeFile, mkdir, access, unlink } from 'fs/promises'
 import { join } from 'path'
 
 // Простая функция генерации имени файла
 function generateFileName(sku: string, index: number, extension: string): string {
   return `${sku}_${String(index).padStart(3, '0')}.${extension}`
 }
+
+// Отключаем статическую генерацию для этого API route
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,26 +38,56 @@ export async function POST(request: NextRequest) {
 
     console.log(`Processing ${files.length} files for SKU: ${sku}`)
     
-    // Улучшенная логика определения директории для продакшн
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_SERVICE_NAME
+    // Детальное логирование переменных окружения для диагностики
+    console.log('Environment variables for debugging:')
+    console.log('NODE_ENV:', process.env.NODE_ENV)
+    console.log('RAILWAY_SERVICE_NAME:', process.env.RAILWAY_SERVICE_NAME)
+    console.log('RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT)
+    
+    // Множественные способы определения продакшн-окружения
+    const isProduction =
+      process.env.NODE_ENV === 'production' ||
+      process.env.RAILWAY_SERVICE_NAME ||
+      process.env.RAILWAY_ENVIRONMENT === 'production' ||
+      process.env.VERCEL_ENV === 'production'
+    
     const uploadDir = isProduction ? '/tmp/uploads' : './uploads'
     
     console.log(`Upload directory: ${uploadDir}, Production: ${isProduction}`)
     
     try {
-      // Проверяем доступность директории
+      // Проверяем доступность директории с более надежной обработкой
       try {
         await access(uploadDir)
         console.log(`Directory already exists: ${uploadDir}`)
+        
+        // Проверяем права на запись
+        const testFilePath = join(uploadDir, '.test-write')
+        await writeFile(testFilePath, 'test')
+        await unlink(testFilePath)
+        console.log(`Directory is writable: ${uploadDir}`)
+        
       } catch {
         // Создаем директорию если не существует
+        console.log(`Creating directory: ${uploadDir}`)
         await mkdir(uploadDir, { recursive: true, mode: 0o755 })
         console.log(`Directory created: ${uploadDir}`)
+        
+        // Проверяем что директория создалась и доступна для записи
+        const testFilePath = join(uploadDir, '.test-write')
+        await writeFile(testFilePath, 'test')
+        await unlink(testFilePath)
+        console.log(`New directory is writable: ${uploadDir}`)
       }
     } catch (error) {
-      console.error('Error accessing/creating directory:', error)
+      console.error('❌ CRITICAL: Error accessing/creating directory:', error)
       return NextResponse.json(
-        { error: 'Storage directory inaccessible' },
+        {
+          error: 'Storage directory inaccessible',
+          details: error instanceof Error ? error.message : 'Unknown error',
+          uploadDir,
+          isProduction
+        },
         { status: 500 }
       )
     }
