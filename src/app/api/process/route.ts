@@ -87,22 +87,17 @@ export async function POST(request: NextRequest) {
           // PhotoRoom всегда возвращает JPG формат
           const finalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.jpg`
           
-          // Читаем файл
-          const workingDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp' : process.cwd()
-          const filePath = join(workingDir, 'temp', sku, file.fileName)
+          // Читаем файл из правильной директории
+          const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+          const filePath = join(uploadDir, file.fileName)
           const fileBuffer = await readFile(filePath)
           
           // Удаляем фон через PhotoRoom
           const processedBuffer = await photoRoomService.removeBackground(fileBuffer)
           
-          // Сохраняем обработанный файл
-          const processedPath = join(workingDir, 'temp', sku, finalName)
+          // Сохраняем обработанный файл в ту же директорию
+          const processedPath = join(uploadDir, finalName)
           await writeFile(processedPath, processedBuffer)
-          
-          // Принудительно синхронизируем файл с диском
-          const fileHandle = await open(processedPath, 'r+')
-          await fileHandle.sync()
-          await fileHandle.close()
           
           console.log(`Processed file saved to: ${processedPath}`)
           
@@ -134,7 +129,7 @@ export async function POST(request: NextRequest) {
             finalName: errorFinalName,
             status: 'error' as const,
             error: error instanceof Error ? error.message : 'Unknown error',
-            processedPath: join(process.cwd(), 'temp', sku, file.fileName)
+            processedPath: join(process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads', file.fileName)
           }
         }
       })
@@ -146,13 +141,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Сохраняем информацию о процессинге в отдельный файл для использования при скачивании
-    const workingDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp' : process.cwd()
-    const processInfoPath = join(workingDir, 'temp', sku, 'process-info.json')
+    const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    const processInfoPath = join(uploadDir, `${sku}-process-info.json`)
     await writeFile(processInfoPath, JSON.stringify(results, null, 2))
-
-    // Не удаляем оригинальные файлы - они могут быть полезны для отладки
-    // и занимают мало места по сравнению с обработанными файлами
-    console.log('Original files preserved for debugging:', originalFilesToDelete)
+    
+    // Удаляем оригинальные файлы после успешной обработки
+    for (const filePath of originalFilesToDelete) {
+      try {
+        await unlink(filePath)
+        console.log(`Deleted original file: ${filePath}`)
+      } catch (error) {
+        console.error(`Error deleting file ${filePath}:`, error)
+      }
+    }
 
     return NextResponse.json({
       success: true,

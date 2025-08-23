@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
+import { writeFile, mkdir, access } from 'fs/promises'
 import { join } from 'path'
 
 // Простая функция генерации имени файла
@@ -35,16 +35,28 @@ export async function POST(request: NextRequest) {
 
     console.log(`Processing ${files.length} files for SKU: ${sku}`)
     
-    // Простая директория для Railway
-    const uploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+    // Улучшенная логика определения директории для продакшн
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_SERVICE_NAME
+    const uploadDir = isProduction ? '/tmp/uploads' : './uploads'
     
-    console.log(`Upload directory: ${uploadDir}`)
+    console.log(`Upload directory: ${uploadDir}, Production: ${isProduction}`)
     
     try {
-      await mkdir(uploadDir, { recursive: true })
-      console.log(`Directory created: ${uploadDir}`)
+      // Проверяем доступность директории
+      try {
+        await access(uploadDir)
+        console.log(`Directory already exists: ${uploadDir}`)
+      } catch {
+        // Создаем директорию если не существует
+        await mkdir(uploadDir, { recursive: true, mode: 0o755 })
+        console.log(`Directory created: ${uploadDir}`)
+      }
     } catch (error) {
-      console.error('Error creating directory:', error)
+      console.error('Error accessing/creating directory:', error)
+      return NextResponse.json(
+        { error: 'Storage directory inaccessible' },
+        { status: 500 }
+      )
     }
 
     const processedFiles = []
@@ -53,8 +65,9 @@ export async function POST(request: NextRequest) {
       const file = files[i]
       console.log(`Processing file ${i + 1}/${files.length}: ${file.name}`)
       
-      // Простое имя файла без сложной логики
-      const fileName = `${sku}_${String(i + 1).padStart(3, '0')}.jpg`
+      // Сохраняем оригинальное расширение файла
+      const fileExtension = file.name.split('.').pop() || 'jpg'
+      const fileName = `${sku}_${String(i + 1).padStart(3, '0')}.${fileExtension}`
       const filePath = join(uploadDir, fileName)
 
       console.log(`File path: ${filePath}`)
@@ -69,7 +82,10 @@ export async function POST(request: NextRequest) {
         console.log(`✅ File saved successfully: ${filePath}`)
       } catch (error) {
         console.error(`❌ Error saving file ${filePath}:`, error)
-        throw error
+        return NextResponse.json(
+          { error: `Failed to save file: ${file.name}` },
+          { status: 500 }
+        )
       }
 
       processedFiles.push({
@@ -77,7 +93,7 @@ export async function POST(request: NextRequest) {
         originalName: file.name,
         fileName: fileName,
         filePath: filePath,
-        type: 'image',
+        type: file.type.startsWith('image/') ? 'image' : 'video',
         size: file.size,
         sku: sku
       })
@@ -95,7 +111,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('❌ UPLOAD API ERROR:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
