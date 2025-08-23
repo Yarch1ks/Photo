@@ -77,3 +77,14 @@ export interface AppError {
   message: string
   details?: any
 }
+
+// Типы для прогресса файлов
+export interface ProgressFile {
+  id: string
+  originalName: string
+  finalName: string
+  status: 'done' | 'error' | 'skipped'
+  error?: string
+  previewUrl?: string
+  type: 'image' | 'video'
+}

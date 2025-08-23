@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, unlink, writeFile, open } from 'fs/promises'
+import { readFile, writeFile, access } from 'fs/promises'
 import { join } from 'path'
 import { PhotoRoomService } from '@/lib/services/PhotoRoomService'
+import {
+  getUploadPath,
+  ensureUploadDir,
+  PUBLIC_ORIGIN,
+  MAX_CONCURRENT_PHOTOROOM_REQUESTS,
+  PHOTOROOM_MAX_RETRIES,
+  PHOTOROOM_RETRY_DELAY
+} from '@/lib/config'
 
 interface ProcessRequest {
   sku: string
@@ -22,12 +30,11 @@ interface ProcessResponse {
     finalName: string
     status: 'done' | 'error' | 'skipped'
     error?: string
-    processedPath?: string
+    previewUrl?: string
   }>
 }
 
 // Ограничение на одновременные запросы к PhotoRoom
-const MAX_CONCURRENT_REQUESTS = 5
 let activeRequests = 0
 
 // Явно отключаем статическую генерацию для этого API route
@@ -45,10 +52,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('🔧 Initializing PhotoRoomService...')
+    console.log(`🔧 Processing SKU: ${sku}, ${files.length} files`)
+
+    // Инициализируем PhotoRoomService
     let photoRoomService: PhotoRoomService
-    let results: ProcessResponse['results'] = []
-    
     try {
       photoRoomService = new PhotoRoomService()
       console.log('🔧 PhotoRoomService initialized successfully')
@@ -59,23 +66,17 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-    
-    console.log('🔑 PhotoRoom token status check completed')
+
+    // Создаем директорию для SKU
+    const uploadDir = await ensureUploadDir(sku)
 
     // Фильтруем только изображения для обработки
     const imageFiles = files.filter(file => file.type === 'image')
     const videoFiles = files.filter(file => file.type === 'video')
 
     // Считаем общее количество файлов для правильной нумерации
-    const totalFiles = imageFiles.length + videoFiles.length
     let fileCounter = 1
-    
-    // Массив для хранения информации о файлах
-    const processedFiles: {
-      originalPath: string;
-      processedPath: string;
-      type: 'image' | 'video';
-    }[] = []
+    const results: ProcessResponse['results'] = []
 
     // Обрабатываем видео (просто пропускаем)
     for (const videoFile of videoFiles) {
@@ -92,12 +93,12 @@ export async function POST(request: NextRequest) {
     // Обрабатываем изображения с ограничением concurrent запросов
     console.log(`🎯 Starting processing of ${imageFiles.length} image files...`)
     
-    for (let i = 0; i < imageFiles.length; i += MAX_CONCURRENT_REQUESTS) {
-      const batch = imageFiles.slice(i, i + MAX_CONCURRENT_REQUESTS)
-      console.log(`📦 Processing batch ${Math.floor(i/MAX_CONCURRENT_REQUESTS) + 1} with ${batch.length} files...`)
+    for (let i = 0; i < imageFiles.length; i += MAX_CONCURRENT_PHOTOROOM_REQUESTS) {
+      const batch = imageFiles.slice(i, i + MAX_CONCURRENT_PHOTOROOM_REQUESTS)
+      console.log(`📦 Processing batch ${Math.floor(i/MAX_CONCURRENT_PHOTOROOM_REQUESTS) + 1} with ${batch.length} files...`)
       
       // Ждем, если слишком много активных запросов
-      while (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+      while (activeRequests >= MAX_CONCURRENT_PHOTOROOM_REQUESTS) {
         console.log('⏳ Waiting for active requests to complete...')
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
@@ -109,47 +110,37 @@ export async function POST(request: NextRequest) {
         try {
           console.log(`🔍 Processing file: ${file.fileName}`)
           
-          // Генерируем уникальное имя файла для этого конкретного файла
+          // Генерируем уникальное имя файла для обработанного изображения
           const currentFileCounter = fileCounter++
-          
-          // PhotoRoom всегда возвращает JPG формат
           const finalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.jpg`
-          console.log(`📝 Generated final name: ${finalName}`)
           
-          // Читаем файл из правильной директории
-          const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
-          const uploadDir = join(baseUploadDir, sku)
-          const filePath = join(uploadDir, file.fileName)
-          const fileBuffer = await readFile(filePath)
-          
-          console.log(`📸 Sending file to PhotoRoom: ${file.fileName}, size: ${fileBuffer.length} bytes`)
+          // Читаем оригинальный файл
+          const originalPath = getUploadPath(sku, file.fileName)
+          const fileBuffer = await readFile(originalPath)
+          console.log(`📸 Original file size: ${fileBuffer.length} bytes`)
           
           // Удаляем фон через PhotoRoom
           console.log('🚀 Calling PhotoRoom API...')
           const processedBuffer = await photoRoomService.removeBackground(fileBuffer)
+          console.log(`✅ PhotoRoom processing completed, processed size: ${processedBuffer.length} bytes`)
           
-          console.log(`✅ PhotoRoom processing completed for: ${file.fileName}, processed size: ${processedBuffer.length} bytes`)
-          
-          // Сохраняем обработанный файл в ту же директорию
-          const processedPath = join(uploadDir, finalName)
+          // Сохраняем обработанный файл с новым именем
+          const processedPath = getUploadPath(sku, finalName)
           await writeFile(processedPath, processedBuffer)
+          console.log(`✅ Processed file saved to: ${processedPath}`)
           
-          console.log(`Processed file saved to: ${processedPath}`)
+          // Проверяем, что файл был сохранен
+          await access(processedPath)
           
-          // Сохраняем информацию о файлах
-          processedFiles.push({
-            originalPath: filePath,
-            processedPath: processedPath,
-            type: 'image'
-          })
+          // Формируем публичный URL для превью
+          const previewUrl = `${PUBLIC_ORIGIN}/uploads/${sku}/${finalName}`
           
           return {
             id: file.id,
-            originalName: file.originalName, // <-- Используем оригинальное имя файла
+            originalName: file.originalName,
             finalName: finalName,
             status: 'done' as const,
-            processedPath,
-            url: `/api/images/${sku}/${finalName}`
+            previewUrl
           }
           
         } catch (error) {
@@ -157,21 +148,19 @@ export async function POST(request: NextRequest) {
           
           // Генерируем уникальное имя файла для ошибки
           const currentFileCounter = fileCounter++
-          
-          // В случае ошибки, оставляем оригинал и помечаем как ошибку
           const originalExtension = file.fileName.split('.').pop() || 'jpg'
           const errorFinalName = `${sku}_${String(currentFileCounter).padStart(3, '0')}.${originalExtension}`
           
-          // В случае ошибки не удаляем оригинал
-          const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
+          // В случае ошибки, оставляем оригинал и помечаем как ошибку
+          const previewUrl = `${PUBLIC_ORIGIN}/uploads/${sku}/${file.fileName}`
+          
           return {
             id: file.id,
             originalName: file.originalName,
             finalName: errorFinalName,
             status: 'error' as const,
             error: error instanceof Error ? error.message : 'Unknown error',
-            processedPath: join(baseUploadDir, sku, file.fileName),
-            url: `/api/images/${sku}/${file.fileName}`
+            previewUrl
           }
         }
       })
@@ -182,35 +171,12 @@ export async function POST(request: NextRequest) {
       activeRequests--
     }
 
-    // Сохраняем информацию о процессинге и файлах для удаления
-    const baseUploadDir = process.env.RAILWAY_SERVICE_NAME ? '/tmp/uploads' : './uploads'
-    const uploadDir = join(baseUploadDir, sku)
-    const processInfoPath = join(uploadDir, `${sku}-process-info.json`)
-    
-    const processInfo = {
-      results,
-      processedFiles
-    }
-    
-    console.log(`Writing process info to: ${processInfoPath}`)
-    console.log(`Process info contains ${processedFiles.length} processed files`)
-    
-    await writeFile(processInfoPath, JSON.stringify(processInfo, null, 2))
-    console.log(`Process info saved successfully`)
-    
-    // Проверяем, что файл был создан
-    try {
-      const savedContent = await readFile(processInfoPath, 'utf-8')
-      console.log(`Process info file size: ${savedContent.length} bytes`)
-      console.log(`Process info preview: ${savedContent.substring(0, 200)}...`)
-    } catch (error) {
-      console.error(`Error reading saved process info:`, error)
-    }
+    console.log(`✅ Processing completed for SKU ${sku}: ${results.length} results`)
 
     return NextResponse.json({
       success: true,
-      results,
-      sku
+      sku,
+      results
     })
 
   } catch (error) {

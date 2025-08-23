@@ -16,7 +16,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { generateFileName } from '@/lib/utils/validation'
-import type { ProgressFile } from '@/components/ui/ProgressTracker'
+import type { ProgressFile } from '@/lib/types'
 
 // Функция для извлечения правильного имени файла без оригинального расширения
 const getCleanFileName = (finalName: string): string => {
@@ -162,6 +162,18 @@ export function Results({
     setIsSendingToTelegram(true)
     
     try {
+      // Формируем массив файлов для отправки
+      const filesToSend = successfulFiles.map(file => ({
+        finalName: file.finalName
+      }))
+      
+      if (filesToSend.length === 0) {
+        alert('Нет готовых файлов для отправки в Telegram')
+        return
+      }
+      
+      console.log('Sending files to Telegram:', filesToSend)
+      
       const response = await fetch('/api/telegram', {
         method: 'POST',
         headers: {
@@ -169,7 +181,7 @@ export function Results({
         },
         body: JSON.stringify({
           sku,
-          chatId: '-4914435522' // ID канала
+          files: filesToSend
         }),
       })
 
@@ -193,10 +205,10 @@ export function Results({
   }
 
   const getPreviewUrl = (file: ProgressFile) => {
-    // Для обработанных изображений возвращаем URL из ответа API
-    if (file.type === 'image' && file.status === 'done' && file.url) {
-      console.log(`Using preview URL for ${file.originalName}: ${file.url}`)
-      return file.url
+    // Для обработанных изображений возвращаем previewUrl из ответа API
+    if (file.type === 'image' && file.status === 'done' && file.previewUrl) {
+      console.log(`Using preview URL for ${file.originalName}: ${file.previewUrl}`)
+      return file.previewUrl
     }
     // Для ошибок или других случаев - placeholder
     console.log(`Using placeholder for ${file.originalName}, status: ${file.status}`)
