@@ -113,12 +113,8 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
         })
 
         console.log('✅ BarcodeDetector инициализирован успешно')
-        try {
-          const formats = await barcodeDetector.getSupportedFormats()
-          console.log('📋 Доступные форматы:', formats)
-        } catch (error) {
-          console.log('⚠️ Не удалось получить форматы:', error)
-        }
+        // Убираем проверку getSupportedFormats, так как она не поддерживается во всех браузерах
+        console.log('📋 Используем форматы: code_128, ean_13, ean_8, code_39, code_93, codabar, upc_a, upc_e')
       } catch (error) {
         console.error('❌ Ошибка инициализации BarcodeDetector:', error)
         // Переходим к fallback методу
