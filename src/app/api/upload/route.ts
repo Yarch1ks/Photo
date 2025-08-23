@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
     
     const formData = await request.formData()
     const sku = formData.get('sku') as string
-    const files = formData.getAll('files') as File[]
+    const files = formData.getAll('files') as any[]
     
-    console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value instanceof File ? value.name : value]))
+    console.log('FormData entries:', Array.from(formData.entries()).map(([key, value]) => [key, value && typeof value === 'object' && 'name' in value ? value.name : value]))
     
     if (!sku) {
       console.error('SKU is required')
@@ -36,7 +36,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`Processing ${files.length} files for SKU: ${sku}`)
+    // Фильтруем и проверяем файлы
+    const validFiles = files.filter(file => {
+      if (file && typeof file === 'object' && 'name' in file && 'size' in file && 'type' in file) {
+        return true
+      }
+      console.warn('Invalid file detected:', file)
+      return false
+    })
+
+    if (validFiles.length === 0) {
+      console.error('No valid files provided')
+      return NextResponse.json(
+        { error: 'No valid files provided' },
+        { status: 400 }
+      )
+    }
+
+    console.log(`Processing ${validFiles.length} valid files for SKU: ${sku}`)
+
     
     // Детальное логирование переменных окружения для диагностики
     console.log('Environment variables for debugging:')
@@ -94,9 +112,9 @@ export async function POST(request: NextRequest) {
 
     const processedFiles = []
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      console.log(`Processing file ${i + 1}/${files.length}: ${file.name}`)
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i]
+      console.log(`Processing file ${i + 1}/${validFiles.length}: ${file.name}`)
       
       // Сохраняем оригинальное расширение файла
       const fileExtension = file.name.split('.').pop() || 'jpg'
