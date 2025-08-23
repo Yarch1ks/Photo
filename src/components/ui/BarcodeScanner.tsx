@@ -15,6 +15,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
   const [isScanning, setIsScanning] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [scanStarted, setScanStarted] = useState(false)
+  const [cameraStarted, setCameraStarted] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -22,7 +23,7 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
 
   useEffect(() => {
     if (isOpen) {
-      startScanning()
+      startCamera()
     } else {
       stopScanning()
     }
@@ -32,18 +33,12 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
     }
   }, [isOpen])
 
-  const startScanning = async () => {
+  const startCamera = async () => {
     try {
       setCameraError(null)
-      setIsScanning(true)
-      setScanStarted(true)
-
-      // Проверяем поддержку BarcodeDetector
-      const barcodeDetectorSupported = isBarcodeDetectorSupported()
-      console.log('🔍 BarcodeDetector поддерживается:', barcodeDetectorSupported)
-
-      // Запрос доступа к камере
+      setCameraStarted(true)
       console.log('📹 Запрашиваем доступ к камере...')
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -60,6 +55,27 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
         await videoRef.current.play()
         console.log('🎬 Видео началось играть')
       }
+    } catch (error) {
+      console.error('❌ Ошибка доступа к камере:', error)
+      setCameraError('Не удалось доступиться к камере. Пожалуйста, проверьте разрешения.')
+      setCameraStarted(false)
+      onError('Не удалось доступиться к камере')
+    }
+  }
+
+  const startBarcodeDetection = async () => {
+    if (!cameraStarted) {
+      console.log('📹 Камера не запущена, сначала запускаем камеру...')
+      await startCamera()
+    }
+
+    try {
+      setScanStarted(true)
+      setIsScanning(true)
+
+      // Проверяем поддержку BarcodeDetector
+      const barcodeDetectorSupported = isBarcodeDetectorSupported()
+      console.log('🔍 BarcodeDetector поддерживается:', barcodeDetectorSupported)
 
       // Начинаем сканирование
       if (barcodeDetectorSupported) {
@@ -70,11 +86,10 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
         scanWithFallback()
       }
     } catch (error) {
-      console.error('❌ Ошибка доступа к камере:', error)
-      setCameraError('Не удалось доступиться к камере. Пожалуйста, проверьте разрешения.')
+      console.error('❌ Ошибка запуска сканирования:', error)
       setIsScanning(false)
       setScanStarted(false)
-      onError('Не удалось доступиться к камере')
+      onError('Не удалось запустить сканирование')
     }
   }
 
@@ -256,27 +271,31 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
               <canvas ref={canvasRef} className="hidden" />
 
               <div className="mt-4 text-center">
-                {!scanStarted ? (
+                {!cameraStarted ? (
                   <div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Нажмите кнопку "Начать сканирование" для запуска камеры
+                      Нажмите кнопку "Запустить камеру" для доступа к камере
                     </p>
                     <button
-                      onClick={startScanning}
+                      onClick={startCamera}
                       className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 mx-auto"
                     >
-                      <Search className="w-4 h-4" />
-                      Начать сканирование
+                      <Camera className="w-4 h-4" />
+                      Запустить камеру
                     </button>
                   </div>
-                ) : (
+                ) : !scanStarted ? (
                   <div>
-                    <p className="text-sm text-gray-600">
-                      Наведите штрих-код в рамку для сканирования
+                    <p className="text-sm text-gray-600 mb-4">
+                      Камера запущена. Нажмите кнопку "Сканировать" для начала обнаружения штрих-кодов
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Поддерживаются форматы: CODE 39, EAN-13, Code 128, UPC-A и др.
-                    </p>
+                    <button
+                      onClick={startBarcodeDetection}
+                      className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 mx-auto"
+                    >
+                      <Search className="w-4 h-4" />
+                      Сканровать
+                    </button>
                     <div className="mt-2 p-2 bg-blue-50 rounded-md">
                       <p className="text-xs text-blue-700">
                         💡 <strong>Советы:</strong>
@@ -288,6 +307,15 @@ export function BarcodeScanner({ onDetected, onError, isOpen, onClose }: Barcode
                         <li>• Избегайте бликов и теней</li>
                       </ul>
                     </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      Наведите штрих-код в рамку для сканирования
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Поддерживаются форматы: CODE 39, EAN-13, Code 128, UPC-A и др.
+                    </p>
                     {isScanning && (
                       <div className="mt-2">
                         <div className="inline-flex items-center gap-2 text-green-600">
