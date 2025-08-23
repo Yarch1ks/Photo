@@ -16,6 +16,11 @@ if (!TELEGRAM_CHAT_ID) {
 
 export const PHOTOROOM_TOKEN = process.env.PHOTOROOM_TOKEN || ''
 
+// Проверка PhotoRoom токена
+if (!PHOTOROOM_TOKEN) {
+  console.warn('PHOTOROOM_TOKEN is not set. PhotoRoom API will not work.')
+}
+
 export const MAX_FILE_SIZE = 25 * 1024 * 1024 // 25MB
 export const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',

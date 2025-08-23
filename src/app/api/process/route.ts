@@ -145,6 +145,13 @@ export async function POST(request: NextRequest) {
           
         } catch (error) {
           console.error(`❌ Error processing file ${file.fileName}:`, error)
+          console.error(`❌ Error details:`, {
+            name: error instanceof Error ? error.name : 'Unknown',
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+            fileName: file.fileName,
+            originalName: file.originalName
+          })
           
           // Генерируем уникальное имя файла для ошибки
           const currentFileCounter = fileCounter++

@@ -34,7 +34,7 @@ export class PhotoRoomService {
     
     // Добавляем изображение как binary data с правильным именем поля
     const blob = new Blob([new Uint8Array(imageBuffer)], { type: 'image/jpeg' })
-    formData.append('data', blob, 'image.jpg')
+    formData.append('imageFile', blob, 'image.jpg')
     
     // Параметры для удаления фона и обработки согласно n8n конфигурации
     formData.append('background.color', 'FFFFFF')
@@ -65,16 +65,29 @@ export class PhotoRoomService {
           const errorData = await response.json().catch(() => ({}))
           console.error(`❌ PhotoRoom API error:`, errorData)
           
+          // Формируем подробное сообщение об ошибке
+          let errorMessage = `PhotoRoom API error (${response.status})`
+          
+          if (errorData.error) {
+            errorMessage += `: ${typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error)}`
+          } else if (errorData.message) {
+            errorMessage += `: ${errorData.message}`
+          } else if (errorData.detail) {
+            errorMessage += `: ${errorData.detail}`
+          } else {
+            errorMessage += ': Unknown error'
+          }
+          
           // Обработка специфичных ошибок PhotoRoom
           if (response.status === 429) {
-            throw new Error('Too many requests to PhotoRoom API')
+            errorMessage = 'Too many requests to PhotoRoom API'
           } else if (response.status === 401) {
-            throw new Error('Invalid PhotoRoom API token')
+            errorMessage = 'Invalid PhotoRoom API token'
           } else if (response.status >= 500) {
-            throw new Error(`PhotoRoom server error: ${errorData.error || 'Unknown error'}`)
-          } else {
-            throw new Error(`PhotoRoom API error: ${errorData.error || 'Unknown error'}`)
+            errorMessage = `PhotoRoom server error: ${errorData.error || 'Unknown error'}`
           }
+          
+          throw new Error(errorMessage)
         }
 
         // PhotoRoom возвращает изображение напрямую, а не JSON
